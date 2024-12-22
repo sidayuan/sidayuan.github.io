@@ -478,12 +478,12 @@ class Game {
         document.getElementById("money-player").textContent = `Your money: $${this.market.getMoneyPlayer()}`;
         document.getElementById("inventory-player").textContent = `Your inventory: ${this.market.getInventoryPlayer()}`;
         document.getElementById("mean-production-time-player").textContent = `Your mean production time: ${this.market.getMeanProductionTimePlayer().toFixed(2)}s`;
-        document.getElementById("production-cost-player").textContent = `Your production cost: $${this.market.getProductionCostPlayer().toFixed(2)}`;
+        document.getElementById("production-cost-player").textContent = `Your production cost: $${Math.round(this.market.getProductionCostPlayer())}`;
         document.getElementById("price-player").textContent = `Your price $${this.market.getPricePlayer()}`;
         document.getElementById("money-competitor").textContent = `Competitor's money: $${this.market.getMoneyCompetitor()}`;
         document.getElementById("inventory-competitor").textContent = `Competitor's inventory: ${this.market.getInventoryCompetitor()}`;
         document.getElementById("mean-production-time-competitor").textContent = `Competitor's mean production time: ${this.market.getMeanProductionTimeCompetitor().toFixed(2)}s`;
-        document.getElementById("production-cost-competitor").textContent = `Competitor's production cost: $${this.market.getProductionCostCompetitor().toFixed(2)}`;
+        document.getElementById("production-cost-competitor").textContent = `Competitor's production cost: $${Math.round(this.market.getProductionCostCompetitor())}`;
         document.getElementById("price-competitor").textContent = `Competitor's price: $${this.market.getPriceCompetitor()}`;
         document.getElementById("buyers").textContent = `Buyers: ${this.market.getBuyers()}`;
         document.getElementById("mean-arrival").textContent = `Mean arrival time: ${this.market.getMeanArrival().toFixed(2)}s`;
