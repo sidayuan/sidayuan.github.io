@@ -412,7 +412,7 @@ class Game {
     upgradeMeanArrival() {
         const price = 50000 * (2 ** this.meanArrivalUpgradeCounter);
         this.market.shiftMoneyPlayer(-price);
-        this.market.shiftMeanArrival(1 / 1.1);
+        this.market.shiftMeanArrival(1 / 1.5);
         this.market.shiftMeanShiftMeanArrival(-0.005);
         this.meanArrivalUpgradeCounter += 1;
         this.parameterUpgradeCounter += 1;
@@ -423,7 +423,7 @@ class Game {
     upgradeMeanValuation() {
         const price = 50000 * (2 ** this.meanValuationUpgradeCounter);
         this.market.shiftMoneyPlayer(-price);
-        this.market.shiftMeanValuation(1.1);
+        this.market.shiftMeanValuation(1.25);
         this.market.shiftMeanShiftMeanValuation(0.005);
         this.meanValuationUpgradeCounter += 1;
         this.parameterUpgradeCounter += 1;
