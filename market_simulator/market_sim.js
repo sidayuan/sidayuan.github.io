@@ -532,9 +532,9 @@ class Game {
             document.getElementById("upgrade-mean-valuation").style.display = 'block';
         }
 
-        document.getElementById("upgrade-supply-info").disabled = ((this.supplyInfoLevel >= 2) || (this.market.getMoneyPlayer() < this.upgradeSupplyInfoCost[Math.max(this.supplyInfoLevel, 1)]));
+        document.getElementById("upgrade-supply-info").disabled = ((this.supplyInfoLevel >= 2) || (this.market.getMoneyPlayer() < this.upgradeSupplyInfoCost[Math.min(this.supplyInfoLevel, 1)]));
         document.getElementById("upgrade-supply-info").textContent = this.upgradeSupplyInfoButtonText[this.supplyInfoLevel];
-        document.getElementById("upgrade-demand-info").disabled = ((this.demandInfoLevel >= 2) || (this.market.getMoneyPlayer() < this.upgradeDemandInfoCost[Math.max(this.demandInfoLevel, 1)]));
+        document.getElementById("upgrade-demand-info").disabled = ((this.demandInfoLevel >= 2) || (this.market.getMoneyPlayer() < this.upgradeDemandInfoCost[Math.min(this.demandInfoLevel, 1)]));
         document.getElementById("upgrade-demand-info").textContent = this.upgradeDemandInfoButtonText[this.demandInfoLevel];
         document.getElementById("upgrade-mean-production-time").textContent = `Offshore production: $${20000 * (2 ** this.productionTimeUpgradeCounter)}`;
         document.getElementById("upgrade-mean-production-time").disabled = this.market.getMoneyPlayer() < 20000 * (2 ** this.productionTimeUpgradeCounter);
