@@ -1,68 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
+<link rel="stylesheet" href="style.css">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Market Simulation</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
-    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <title>Sida's page</title>
 </head>
 <body>
-    <div id="header">
-        <span id="time" style="color: lightgray">0h 0m</span>
-        <b><span id="message" style="color: #1DE25B;"></span></b>
-    </div>
-    <div id="container" class="flex-container">
-        <div id="left-panel">
-            <div id="player-info">
-                <h1 style="color: lightslategray">Market Simulator</h1>
-                <h3>Your Info</h3>
-                <p id="money-player">Your money:</p>
-                <p id="inventory-player">Your inventory:</p>
-                <p id="mean-production-time-player"></p>
-                <p id="production-cost-player">Your production cost:</p>
-                <button id="toggle-production-button">Pause production</button>
-                <p id="price-player">Your production cost:</p>
-                <input type="number" id="new-price-player" placeholder="Price" style="width: 80px;">
-                <button id="set-price-button">Set</button>
-            </div>
+    <header style="padding: 20px">
+        <h1>Sida's extremely mediocre webpage (I am not a web developer and it shows)</h1>
+    </header>
 
-            <div id="competitor-info">
-                <h3>Competitor Info</h3>
-                <p id="money-competitor"></p>
-                <p id="inventory-competitor"></p>
-                <p id="mean-production-time-competitor"></p>
-                <p id="production-cost-competitor"></p>
-                <p id="price-competitor">Competitor's price:</p>
-                <input type="number" id="buy-amount" placeholder="Amount" style="width: 80px;">
-                <button id="buy-button">Buy</button>
-            </div>
+    <main style="padding: 20px">
+        <p>Stuff to check out (or don't)</p>
+        <ul>
+            <li><a href="market_simulator/market_simulator.html">Market Simulator.</a> If you're a true entrepreneur, then speedrun to $1M in this simulation and show me how long it took, you poser.</li>
+        </ul>
+    </main>
 
-            <div id="market-info">
-                <h3>Market Info</h3>
-                <p id="buyers">Buyers:</p>
-                <p id="mean-arrival">Mean arrival time:</p>
-                <p id="mean-valuation">Mean valuation:</p>
-            </div>
-
-            <div id="upgrades">
-                <button id="upgrade-supply-info">Corporate espionage: $10,000</button>
-                <button id="upgrade-mean-production-time">Offshore production</button>
-                <button id="upgrade-production-cost">Lobby for deregulation</button>
-                <button id="upgrade-demand-info">Hire consultants: $30,000</button>
-                <button id="upgrade-mean-arrival">Corporate propaganda</button>
-                <button id="upgrade-mean-valuation">Addictive gamification</button>
-            </div>
-        </div>
-
-        <div id="plots">
-            <div id="moneyPlot" style="width: 100%; height: 400px;"></div>
-            <div id="valuationsPlot"></div>
-        </div>
-    </div>
-
-    <script src="market_sim.js"></script>
+    <footer>
+        <p style="color: lightgray">&copy; 2024 Sida. All rights reserved.</p>
+    </footer>
 </body>
 </html>
