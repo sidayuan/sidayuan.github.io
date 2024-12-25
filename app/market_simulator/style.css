@@ -3,12 +3,14 @@ body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
+    line-height: 0.9;
 }
 
 #header {
     background-color: white;
     color: black;
-    padding: 20px;
+    padding-left: 20px;
+    padding-top: 20px;
     text-align: left;
 }
 
@@ -17,7 +19,7 @@ body {
     display: flex;
     flex-direction: row; /* Align items horizontally */
     justify-content: flex-start; /* Align to the left */
-    padding: 20px;
+    padding-left: 20px;
     gap: 0px; /* Add space between the two sections */
 }
 
@@ -49,23 +51,23 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0px; /* Add space between the plots */
-    min-width: 300px; /* Prevent the plots from becoming too small */
+    min-width: 150px; /* Prevent the plots from becoming too small */
 }
 
 /* Styling for the plot containers */
 #moneyPlot {
     width: 100%; /* Full width of the parent container */
-    height: 400px; /* Set height in percentage or pixels */
-    min-height: 300px; /* Prevent the plots from collapsing too much */
-    max-height: 500px; /* Optional: Prevent it from growing too tall */
+    height: 300px; /* Set height in percentage or pixels */
+    min-height: 100px; /* Prevent the plots from collapsing too much */
+    max-height: 400px; /* Optional: Prevent it from growing too tall */
 }
 
 #valuationsPlot {
     display: none;
     width: 100%; /* Full width of the parent container */
-    height: 400px; /* Set height in percentage or pixels */
-    min-height: 300px; /* Prevent the plots from collapsing too much */
-    max-height: 500px; /* Optional: Prevent it from growing too tall */
+    height: 300px; /* Set height in percentage or pixels */
+    min-height: 100px; /* Prevent the plots from collapsing too much */
+    max-height: 400px; /* Optional: Prevent it from growing too tall */
 }
 
 /* Ensure that plot scaling is fluid */

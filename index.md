@@ -33,13 +33,13 @@ I'm a data scientist by trade and a mathematician by nature.
 
 I currently work at [Canva](https://www.canva.com/). <span style="color:lightgrey">It should go without saying that absolutely nothing on this website reflects the views of my past and present employers, institutions and colleagues. This is <i>my</i> space.</span>
 
-I graduated top of class from the University of Sydney with a Bachelor of Science (Advanced Mathematics) (Honours) in 2020
+I graduated top of my class in 2020 from the University of Sydney with a Bachelor of Science (Advanced Mathematics) (Honours)
 - Thesis: <i>Series Representations of Lévy Processes and Applications</i>
 - Majors in Mathematics, Statistics
 - Minors in Computer Science, Economics <span style="color:lightgrey">(omitted from my transcript to fit in the CS minor)</span>
 - <details>
   <summary>19 academic awards</summary>
-  Well, if you insist...
+  <span style="color:lightgrey">Well, if you insist...</span>
 
   <ul>
     <li>KE Bullen Memorial Prize
@@ -79,7 +79,6 @@ I graduated top of class from the University of Sydney with a Bachelor of Scienc
     <li>Dean's Entry Scholarship in Faculty of Science</li>
   </ul></details>
 
-<br>
 
 During my time at university, I was conducting mathematics research in stochastic processes (a subfield of probability theory)
 - S. Yuan and R. Kawai. [Numerical aspects of shot noise representation of infinitely divisible laws and related processes](https://projecteuclid.org/journals/probability-surveys/volume-18/issue-none/Numerical-aspects-of-shot-noise-representation-of-infinitely-divisible-laws/10.1214/20-PS359.full), <i>Probability Surveys</i>, <b>18</b>, 2021.
@@ -89,7 +88,7 @@ During my time at university, I was conducting mathematics research in stochasti
 
 ## Contact me
 
-<p id="contact"></p>
+<p id="contact" style="text-align:center;"></p>
 
 <p style="text-align:center;">
 
@@ -109,7 +108,7 @@ During my time at university, I was conducting mathematics research in stochasti
     event.preventDefault();
     var userAnswer = document.getElementById("answer").value;
     if (userAnswer == 2 * lim) {
-        document.getElementById("contact").innerHTML = 'You can contact me at <a href="mailto:' + name1 + '.' + name2 + '@' + domain1 + domain2 + '.com">' + name1 + '.' + name2 + '@' + domain1 + domain2 + '.com' + '</a>';
+        document.getElementById("contact").innerHTML = `<a href="mailto:' + name1 + '.' + name2 + '@' + domain1 + domain2 + '.com">` + name1 + '.' + name2 + '@' + domain1 + domain2 + '.com' + '</a>';
     }
   });
 </script>
