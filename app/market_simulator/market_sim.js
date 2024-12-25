@@ -243,7 +243,6 @@ class Market {
             "shift_production_cost_competitor"
         ]
         let shiftEvent = _.sample(shiftEvents);
-        console.log(`Chosen event: ${shiftEvent}`);
         switch (shiftEvent) {
             case "shift_mean_arrival":
                 this.shiftMeanArrival(this.generateLogNormal(this.meanShiftMeanArrival, this.sdParameterChange));
