@@ -33,7 +33,7 @@ I'm a data scientist by trade and a mathematician by nature.
 
 I currently work at [Canva](https://www.canva.com/). <span style="color:lightgrey">It should go without saying that absolutely nothing on this website reflects the views of my past and present employers, institutions and colleagues. This is <i>my</i> space.</span>
 
-I graduated top of my class in 2020 from the University of Sydney with a Bachelor of Science (Advanced Mathematics) (Honours)
+I graduated with a Bachelor of Science (Advanced Mathematics) (Honours) from the University of Sydney in 2020
 - Thesis: <i>Series Representations of Lévy Processes and Applications</i>
 - Majors in Mathematics, Statistics
 - Minors in Computer Science, Economics <span style="color:lightgrey">(omitted from my transcript to fit in the CS minor)</span>
