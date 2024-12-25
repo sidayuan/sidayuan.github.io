@@ -1,6 +1,6 @@
----
-# Feel free to add content and custom Front Matter to this file.
-# To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
+# Welcome to Sida's space
 
-layout: home
----
+A place where I put up some of the things that interests me.
+
+Stuff to check out:
+- [Market simulator game](app/market_simulator/market_simulator.html)
