@@ -8,7 +8,7 @@ layout: compact
 
 Let's say you have a group of friends, and each person has a ranking of their favourite movies of all time. You want to determine a ranking that best captures your collective taste in movies. Well buddy, this one's for you.
 
-This app aggregates rankings using <i>iterated preference voting with quadratic rank weights</i>.
+This app aggregates rankings using <i>iterated preferential voting with quadratic rank weights</i>.
 
 <br>
 
