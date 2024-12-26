@@ -13,6 +13,6 @@ Oh yeah? You think you're an entrepreneur? Prove it by getting to $1M and show m
 
 Let's say you're in a situation with a group of people where:
 - each person has a ranking of their favourite movies/games/musicians of all time, or
-- each person has a preference ranking of a decision that needs to be made, e.g. which restaurant to go to, which country to travel to, which candidate should we hire, etc.
+- each person has a preference ranking of a decision that needs to be made, e.g. which restaurant to go to, which country to travel to, which candidate should you hire, etc.
 
 Well buddy, this one's for you. This tool aggregates everyone's rankings into a single ranking that best represents everyone's preferences.
