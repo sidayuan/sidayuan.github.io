@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ranked list aggregator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body style="padding:20px; width: 85%; max-width: 800px; height: 200px;">
+    <h1>Ranked list aggregator</h1>
+    <p>
+        Let's say you have a group of friends, and each person has a ranking of their favourite movies of all time. You want to determine a ranking that best captures your collective taste in movies. Well buddy, this one's for you.
+        <br><br>
+        This app aggregates rankings using <i>iterated preference voting with quadratic rank weights</i>.
+    </p>
+    <div id="input">
+        <p><b>Input method</b></p>
+        <select name="Select input method" id="input-selector">
+            <option value="none" selected>None</option>
+            <option value="text-input">Text field</option>
+            <option value="csv-upload">CSV file</option>
+        </select>
+
+        <textarea name="message" id="text-input" placeholder="Enter ranked lists" style="width: 95%; max-width: 800px; height: 200px;">Hot Fuzz, Zoolander, Wayne's World
+Zoolander, Wayne's World, The Godfather, Hot Fuzz
+Zoolander, Mulholland Drive, Wayne's World, Hot Fuzz</textarea>
+        
+        <p id="csv-instructions">CSV file must only have the ranked items - no names!</p>
+
+        <input type="file" id="csv-upload" accept=".csv">
+
+        <p id="orientation">
+            <b>Individual rankings are oriented as</b>
+            <select name="Orientation" id="csv-orientation">
+                <option value="column" selected>columns</option>
+                <option value="row">rows</option>
+            </select>
+        </p>
+
+        <br>
+
+        <button id="aggregate-button">Aggregate</button>
+        
+        <br>
+        
+        <button id="download-button">Download CSV</button>
+  
+    </div>
+
+    <div id="output"></div>
+
+    <script src="ranked_list_aggregator.js"></script>
+</body>
+</html>
