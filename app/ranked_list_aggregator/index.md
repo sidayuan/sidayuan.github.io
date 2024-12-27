@@ -1,5 +1,6 @@
 ---
 layout: compact
+description: An app that aggregates ranked lists of individuals into an overall preference ranking that represents the group.
 ---
 
 <link rel="stylesheet" href="style.css">

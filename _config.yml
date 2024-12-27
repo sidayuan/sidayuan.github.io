@@ -18,7 +18,7 @@
 # You can create any custom variable you would like, and they will be accessible
 # in the templates via {{ site.myvariable }}.
 
-title: Sida's space
+title: Sida Yuan
 #email: sida.yuan97@gmail.com
 description: >- # this means to ignore newlines until "baseurl:"
   A brain dump of a mathematician and a data scientist.
@@ -35,6 +35,7 @@ plugins:
   - jekyll-feed
   - jekyll-archives
   - jekyll-sitemap
+  - jekyll-toc
 
 google_analytics: "G-FY6MPJ4ZSP"
 

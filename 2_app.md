@@ -1,6 +1,7 @@
 ---
 layout: page
 title: Apps
+description: Apps and games
 permalink: /app/
 ---
 
