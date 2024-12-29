@@ -11,11 +11,53 @@ tags:
 published: true
 ---
 
+<script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script type="text/javascript" src="https://d3js.org/d3.v4.min.js"></script>
+
+<script type="text/javascript">
+  
+  function generateNormal(mu, sigma, n) {
+    return Array.from({ length: n }, () => d3.randomNormal(mu, sigma)());
+  }
+
+  function generateBrownianMotion(mu, sigma, T, stepsize) {
+    const steps = Math.round(T / stepsize);
+    const times = Array.from({ length: steps }, (_, i) => i * stepsize);
+    const normalRVs = generateNormal(0, stepsize * sigma, steps - 1);
+    const increments = normalRVs.map(element => element + mu * stepsize);
+    
+    const path = [0];
+    let sum = 0;
+    for (let i = 0; i < steps; i++) {
+      sum += increments[i];
+      path.push(sum);
+    }
+    return [times, path];
+  }
+
+  function generateBrownianBridge(target, sigma, T, stepsize) {
+    const steps = Math.round(T / stepsize);
+    const times = Array.from({ length: steps }, (_, i) => i * stepsize);
+    const brownianMotionPath = generateBrownianMotion(0, sigma, T, stepsize);
+    const finalBMPosition = brownianMotionPath[1][steps - 1];
+
+    const path = [];
+    for (let i = 0; i < steps; i++) {
+      path.push(brownianMotionPath[1][i] + (times[i] * (target - finalBMPosition) / T));
+    }
+
+    return [times, path];
+  }
+
+
+</script>
+
+
 ## The tl;dr
 
 In this post:
 - I talk about a turning point in my life when I went from being a maths student to a researcher. It involves proving an existing theorem about Brownian motion with a more accessible and elegant approach than what's usually in the literature.
-- I introduce the necessary maths to understand this result <span style="color:#8B19FF">in an accessible way to non-experts.</span> This post serves as a <span style="color:#8B19FF">gentle introduction</span> to the theory of random variables, stochastic processes and Brownian motion, with simulations to help with building intuition.
+- I introduce the necessary maths to understand this result <span style="color:#8B19FF">in an accessible way to non-experts.</span> This post serves as a <span style="color:#8B19FF">gentle introduction</span> to the theory of random variables, stochastic processes and Brownian motion, with <span style="color:#8B19FF">interactive simulations</span> to help build intuition.
 - I derive the <span style="color:#8B19FF">distribution of the first hitting time for a Brownian motion with drift</span> without using Girsanov's theorem, by invoking the reflection principle and properties of the Brownian bridge.
 
 <br>
@@ -95,6 +137,8 @@ Like the Lord of the Rings movies, you can't understand the third movie if you d
 
 If you're already well-versed with all of the concepts discussed, you can probably already skip to [the proof](#the-proof) section at the end of this post. But once again, the audience I want to cater to are non-mathematicians, so in this section we'll build up the necessary knowledge to mathematically understand the theorem and its proof. To such a reader, this section will likely be the most valuable. It serves as a gentle introduction to random variables, stochastic processes, and the reflection principle.
 
+I sprinkle in several <span style="color:#8B19FF">interactive simulations</span> to help with visualising and building intuition.
+
 ### Random variables
 
 A <i>random variable</i> is simply any object such that its value isn't deterministic. That is, it's a variable that's random. (See, I told you mathematicians tend to be very literal.) Coin flips, dice rolls, stock prices, the position of a drop of dye in a beaker, are all examples of random variables. But how do we actually mathematically formulate a random variable?
@@ -135,7 +179,42 @@ $$\begin{align}
 
 The most commonly used continuous random variable is one that you're probably familiar with yourself: a normally distributed random variable, for which it has the density $f_X(x) = \frac{1}{\sqrt{2\pi\sigma^2}} e ^ {-(x - \mu)^2 / 2\sigma^2}$, where $\mu$ and $\sigma^2$ are its mean and variance respectively. We write "$X \sim N(\mu, \sigma^2)$" to mean that the random variable $X$ is of this normal distribution.
 
-<span style="color:red">Insert random normal generator here</span>
+<span style="color: orchid;">Let's look at some random samples from a $N(\mu, \sigma^2)$ random variable.</span>
+
+<div style="text-align: center;">
+  <span style="color: orchid;">$\mu =$</span>
+  <input type="number" id="n-mu-value" value="0" style="width: 40px;">
+  <span style="color: orchid;">&nbsp; $\sigma =$</span>
+  <input type="number" id="n-sigma-value" value="1" min="0" oninput="this.value = Math.abs(this.value)" style="width: 40px;">
+  &nbsp;
+  <button id="sample-normal">Sample</button>
+</div>
+
+<br>
+
+<p id="sample-normal-output" style="text-align: center; color: orchid;"></p>
+
+
+<script type="text/javascript">
+  function outputNormalSample() {
+    const normalSample = generateNormal(
+      document.getElementById("n-mu-value").value,
+      document.getElementById("n-sigma-value").value,
+      4
+    );
+    let output = ""
+    normalSample.forEach(element => {
+      output += `${Math.round(element * 100) / 100} &emsp; `;
+      });
+    document.getElementById("sample-normal-output").innerHTML = output;
+  }
+
+  outputNormalSample()
+
+  document.getElementById("sample-normal").addEventListener("click", outputNormalSample)
+</script>
+
+<br>
 
 
 <details>
@@ -210,7 +289,55 @@ Let $\\{B_t : t \ge 0\\}$ be a stochastic process that takes values in $\mathbb 
 - <span style="color:#8B19FF">It has continuous paths.</span> That is, $B_t(\omega)$ is continuous in $t$ for every $\omega\in\Omega$. <span style="color: lightgrey">"Continuous" just means that there are no sudden jumps, i.e. you can trace the entire path with a pen without needing to lift it up.</span>
 - It starts from the origin, i.e. $B_0 = 0$.
 
-<span style="color: red;">Brownian motion simulation</span>
+<span style="color: orchid;">Let's look at some examples of sample paths of Brownian motion.</span>
+
+<div style="text-align: center;">
+  <button id="sim-bm">Simulate</button>
+</div>
+
+<div id="sim-bm-plot" style="width: 100%; height: 400px; background-color: transparent;"></div>
+
+
+<script type="text/javascript">
+  function simBMPlot() {
+    let path = generateBrownianMotion(0,1,10,0.1);
+
+    let trace = {
+      x: path[0],
+      y: path[1],
+      type: 'line',
+      mode: 'line',
+      name: '',
+      line: {
+        color: 'slateblue'
+      }
+    };
+
+    let layout = {
+      title: 'Brownian motion sample path',
+      xaxis: {
+        title: 'Time',
+        showgrid: false
+      },
+      yaxis: {
+        title: '',
+        showgrid: false,
+        range: [-2.5, 2.5]
+      },
+      plot_bgcolor: 'transparent',
+      paper_bgcolor: 'transparent',
+    };
+
+    // Create the plot
+    Plotly.newPlot('sim-bm-plot', [trace], layout);
+  }
+
+  simBMPlot();
+
+  document.getElementById("sim-bm").addEventListener("click", simBMPlot)
+</script>
+
+<br>
 
 Brownian motion is a model for a lot of things. It was named after the botanist Robert Brown when he described how a single pollen of a plant moved in water (of course, that would be a Brownian motion in $\mathbb R^3$). It's also commonly used for modelling quantities in finance, and even the motions of stars and black holes. A major reason for why Brownian motion is used so often is because of its mathematical elegance.
 
@@ -231,7 +358,83 @@ The characteristic function of a normal distribution can be straightforwardly co
 
 Using the Gaussian property along with the previous result on the scaling of normal random variables, it's straightforward to show that <span style="color:#8B19FF">Brownian motions are <i>self-similar</i>.</span> That is, for every $c > 0$, it holds that $\\{B_{ct} : t \ge 0\\}$ has the same distribution as $\\{\sqrt c B_t : t \ge 0\\}$. This is a really neat fractal property of the Brownian motion where zooming into (the time axis of) a Brownian motion ($c < 1$) will look like a Brownian motion.
 
-<span style="color: red;">Brownian motion self-similar simulation</span>
+<span style="color: orchid;">Let's zoom into some Brownian motion sample paths below to examine this fractal-like nature. The plot on the right looks like a Brownian motion, doesn't it? Just different axis scales, as expected.</span>
+
+<div style="text-align: center;">
+  <button id="sim-bm-zoom">Simulate</button>
+</div>
+
+<div id="sim-bm-zoom-out-plot" style="width: 49%; height: 400px; background-color: transparent; display: inline-block;"></div>
+<div id="sim-bm-zoom-in-plot" style="width: 49%; height: 400px; background-color: transparent; display: inline-block;"></div>
+
+
+<script type="text/javascript">
+  function simBMZoomPlot() {
+    let path = generateBrownianMotion(0, 1, 10, 0.01);
+
+    let trace_out = {
+      x: path[0],
+      y: path[1],
+      type: 'line',
+      mode: 'line',
+      name: '',
+      line: {
+        color: 'slateblue'
+      }
+    };
+
+    let layout_out = {
+      title: 'Brownian motion, 0 < t < 10',
+      xaxis: {
+        title: 'Time',
+        showgrid: false
+      },
+      yaxis: {
+        title: '',
+        showgrid: false
+      },
+      plot_bgcolor: 'transparent',
+      paper_bgcolor: 'transparent',
+    };
+
+    // Create the plot
+    Plotly.newPlot('sim-bm-zoom-out-plot', [trace_out], layout_out);
+
+    let trace_in = {
+      x: path[0].slice(0,100),
+      y: path[1].slice(0,100),
+      type: 'line',
+      mode: 'line',
+      name: '',
+      line: {
+        color: 'slateblue'
+      }
+    };
+
+    let layout_in = {
+      title: 'Brownian motion, 0 < t < 1',
+      xaxis: {
+        title: 'Time',
+        showgrid: false
+      },
+      yaxis: {
+        title: '',
+        showgrid: false
+      },
+      plot_bgcolor: 'transparent',
+      paper_bgcolor: 'transparent',
+    };
+
+    // Create the plot
+    Plotly.newPlot('sim-bm-zoom-in-plot', [trace_in], layout_in);
+  }
+
+  simBMZoomPlot();
+
+  document.getElementById("sim-bm-zoom").addEventListener("click", simBMZoomPlot)
+</script>
+
+<br>
 
 
 
@@ -239,7 +442,80 @@ Using the Gaussian property along with the previous result on the scaling of nor
 
 The reflection principle is a useful way to formalise the idea that at any point of a Brownian motion's path, if we flip the direction of the Brownian motion moving forward after that point, the entire path of the resulting stochastic process is still a Brownian motion.
 
-<span style="color: red">Reflection principle simulation here</span>
+<span style="color: orchid;">Let's look at the sample paths of reflected Brownian motions at fixed reflection times. The reflected sample path looks just like a standard Brownian motion. After all, do you even know <i>which</i> path is the reflected one?</span>
+
+<div style="text-align: center;">
+  <span style="color: orchid;">Reflection time:</span>
+  &nbsp;
+  <input type="number" id="fixed-reflection-time" value="5" min="0" max="10" oninput="this.value = Math.min(Math.abs(this.value), 10)" style="width: 40px;">
+  &nbsp;
+  <button id="sim-fixed-reflection">Simulate</button>
+</div>
+
+<div id="sim-fixed-reflection-plot" style="width: 100%; height: 400px; background-color: transparent;"></div>
+
+
+<script type="text/javascript">
+  function simFixedReflectionPlot() {
+    let path = generateBrownianMotion(0, 1, 10, 0.1);
+    let reflectedPath = [];
+    let reflectionTime = document.getElementById("fixed-reflection-time").value;
+    let reflectionStep = Math.max((reflectionTime * 10) - 1, 0);
+    for (let i = 0; i < path[0].length; i++) {
+      if (path[0][i] < reflectionTime) {
+        reflectedPath.push(path[1][i]);
+      } else {
+        reflectedPath.push(2 * path[1][reflectionStep] - path[1][i]);
+      }
+    }
+
+    let traces = [
+      {
+        x: path[0],
+        y: reflectedPath,
+        type: 'line',
+        mode: 'line',
+        name: '',
+        line: {
+          color: 'hotpink'
+        }
+      },
+      {
+        x: path[0],
+        y: path[1],
+        type: 'line',
+        mode: 'line',
+        name: '',
+        line: {
+          color: 'slateblue'
+        }
+      }
+    ];
+
+    let layout = {
+      title: 'Brownian motion reflected at fixed time',
+      xaxis: {
+        title: 'Time',
+        showgrid: false
+      },
+      yaxis: {
+        title: '',
+        showgrid: false
+      },
+      plot_bgcolor: 'transparent',
+      paper_bgcolor: 'transparent',
+    };
+
+    // Create the plot
+    Plotly.newPlot('sim-fixed-reflection-plot', traces, layout);
+  }
+
+  simFixedReflectionPlot();
+
+  document.getElementById("sim-fixed-reflection").addEventListener("click", simFixedReflectionPlot);
+</script>
+
+<br>
 
 Let $a > 0$ be a threshold value and $\tau_a$ be the first hitting time of this threshold, i.e. $\tau_a = \inf\\{t \ge 0: B_t = a\\}$. Our motivating question is: what's the distribution of the first hitting time $\tau_a$?
 
@@ -285,7 +561,89 @@ How do we make sense of this result, and what we did in the proof? I find it eas
 - But due to the symmetry of the Brownian motion, the probability of either happening is exactly the same, i.e. $\mathbb P\left(B_t \ge a\right) = \mathbb P\left(B_t \le a\right)$.
 - Therefore, the probability that $B_t \ge a$ is exactly half of the probability of the Brownian motion exceeding $a$ before $t$ in the first place, i.e. $\mathbb P\left(B_t \ge a\right) = \mathbb P(\tau_a \le t)/2$.
 
-<span style="color: red">Another reflection principle simulation here, that calls attention to (a) if the threshold passes, and if so (b) if $B_t \ge a$</span>
+<span style="color: orchid;">Let's simulate this exact setup: given a threshold value, we reflect the path of the Brownian motion after the first hitting time. Pay attention to the symmetry: <i>if</i> a reflection happens, then for every path that ends above the threshold, there is also another path that ends below it.</span>
+
+<div style="text-align: center;">
+  <span style="color: orchid;">Threshold value:</span>
+  &nbsp;
+  <input type="number" id="threshold-value" value="0.5" min="0" max="3" oninput="this.value = Math.min(Math.abs(this.value), 3)" style="width: 40px;">
+  &nbsp;
+  <button id="sim-reflection-principle">Simulate</button>
+</div>
+
+<div id="sim-reflection-principle-plot" style="width: 100%; height: 400px; background-color: transparent;"></div>
+
+<div id="sim-reflection-principle-output" style="text-align: center; color: orchid;"></div>
+
+
+<script type="text/javascript">
+  function simReflectionPrinciplePlot() {
+    let path = generateBrownianMotion(0, 1, 10, 0.1);
+    let reflectedPath = [];
+    let threshold = document.getElementById("threshold-value").value;
+    let reflectionStep = path[1].findIndex(num => num >= threshold);
+    console.log(path[1]);
+    console.log(reflectionStep);
+    if (reflectionStep != -1) {
+      for (let i = 0; i < path[0].length; i++) {
+        if (i < reflectionStep) {
+          reflectedPath.push(path[1][i]);
+        } else {
+          reflectedPath.push(2 * threshold - path[1][i]);
+        }
+      }
+      document.getElementById("sim-reflection-principle-output").innerHTML = `The threshold is crossed at ${Math.round(reflectionStep * 0.1 * 100) / 100}s.`;
+    } else {
+      document.getElementById("sim-reflection-principle-output").innerHTML = `The threshold is never crossed.`;
+    }
+
+    let traces = [
+      {
+        x: path[0],
+        y: reflectedPath,
+        type: 'line',
+        mode: 'line',
+        name: '',
+        line: {
+          color: 'hotpink'
+        }
+      },
+      {
+        x: path[0],
+        y: path[1],
+        type: 'line',
+        mode: 'line',
+        name: '',
+        line: {
+          color: 'slateblue'
+        }
+      }
+    ];
+
+    let layout = {
+      title: 'Brownian motion reflected at first hitting time',
+      xaxis: {
+        title: 'Time',
+        showgrid: false
+      },
+      yaxis: {
+        title: '',
+        showgrid: false
+      },
+      plot_bgcolor: 'transparent',
+      paper_bgcolor: 'transparent',
+    };
+
+    // Create the plot
+    Plotly.newPlot('sim-reflection-principle-plot', traces, layout);
+  }
+
+  simReflectionPrinciplePlot();
+
+  document.getElementById("sim-reflection-principle").addEventListener("click", simReflectionPrinciplePlot);
+</script>
+
+<br>
 
 The formulation of the reflection principle as $\mathbb P(\sup\nolimits_{0\le s\le t} B_s \ge a) = 2\mathbb P\left(B_t \ge a\right)$ is incredibly useful because it directly gives us a way to compute the <span style="color:#8B19FF">maximum position of a Brownian motion up until time $t$</span>, which is exactly what $\sup_{0\le s\le t}B_s$ is. Specifically, by noting that due to the symmetry of the normal distribution, $2\mathbb P(B_t \ge a) = \mathbb P(\\{B_t \ge a\\}\cup\\{-B_t \ge a\\}) = \mathbb P(\|B_t\| \ge a)$, we thus have
 
@@ -316,7 +674,70 @@ Then, the process $\\{\tilde B_t : t\ge 0\\}$ is also a Brownian motion.
 
 This version of the reflection principle formalises very explicitly the idea that if a Brownian motion gets "reflected" at the first hitting time for touching some threshold, it's sample path still just looks like a typical Brownian motion. Or in other words, that act of reflection had zero effect from a probabilistic view. If somebody made the Brownian motion reflect after the first hitting time and and didn't tell us, we wouldn't be able to tell!
 
-<span style="color: red">Another reflection principle simulation here, where we reflect the Brownian motion at the first hitting point but don't tell the reader what the threshold level is.</span>
+<span style="color: orchid;">To prove this point, I've simulated a Brownian motion that gets reflected at the first hitting time of some positive threshold. I'm not going to tell you what this threshold is. Can you tell?</span>
+
+<div style="text-align: center;">
+  <button id="sim-reflection-principle-anon">Simulate</button>
+</div>
+
+<div id="sim-reflection-principle-anon-plot" style="width: 100%; height: 400px; background-color: transparent;"></div>
+
+
+<script type="text/javascript">
+  function simReflectionPrincipleAnonPlot() {
+    let path = generateBrownianMotion(0, 1, 10, 0.1);
+    let reflectedPath = [];
+    let threshold = 0.16;
+    let reflectionStep = path[1].findIndex(num => num >= threshold);
+    console.log(path[1]);
+    console.log(reflectionStep);
+    if (reflectionStep != -1) {
+      for (let i = 0; i < path[0].length; i++) {
+        if (i < reflectionStep) {
+          reflectedPath.push(path[1][i]);
+        } else {
+          reflectedPath.push(2 * threshold - path[1][i]);
+        }
+      }
+    } else {
+    }
+
+    let trace = {
+        x: path[0],
+        y: path[1],
+        type: 'line',
+        mode: 'line',
+        name: '',
+        line: {
+          color: 'slateblue'
+        }
+      };
+
+    let layout = {
+      title: 'Brownian motion reflected at first hitting time for a hidden threshold',
+      xaxis: {
+        title: 'Time',
+        showgrid: false
+      },
+      yaxis: {
+        title: '',
+        showgrid: false,
+        range: [-2.5, 2.5]
+      },
+      plot_bgcolor: 'transparent',
+      paper_bgcolor: 'transparent',
+    };
+
+    // Create the plot
+    Plotly.newPlot('sim-reflection-principle-anon-plot', [trace], layout);
+  }
+
+  simReflectionPrincipleAnonPlot();
+
+  document.getElementById("sim-reflection-principle-anon").addEventListener("click", simReflectionPrincipleAnonPlot);
+</script>
+
+<br>
 
 The second version of the reflection principle is the one that we'll use to prove the main theorem later.
 
@@ -333,7 +754,62 @@ Let's talk a bit more about how this conditioning works. Since we know where $B_
 
 Why is this stochastic process called a "Brownian bridge"? Obviously it's "Brownian" because it's derived from a Brownian motion. But why "bridge"? Well, we know that $B_0 = 0$ and we know that $B_T = a$, so really this stochastic process is simply tracing out a continuous path from $(t, x) = (0, 0)$ to $(t, x) = (T, a)$. That is, it's creating a bridge between those two points, albeit a rough and jagged one.
 
-<span style="color: red">Brownian bridge simulation</span>
+<span style="color: orchid;">Let's look at some examples of sample paths of Brownian bridge.</span>
+
+<div style="text-align: center;">
+  <span style="color: orchid;">Conditioned on $B_{10} =$</span>
+  <input type="number" id="bb-condition-value" value="0" style="width: 40px;">
+  &nbsp;
+  <button id="sim-bb">Simulate</button>
+</div>
+
+<div id="sim-bb-plot" style="width: 100%; height: 400px; background-color: transparent;"></div>
+
+
+<script type="text/javascript">
+  function simBBPlot() {
+    let path = generateBrownianBridge(
+      document.getElementById("bb-condition-value").value,
+      1,
+      10,
+      0.1
+    );
+
+    let trace = {
+      x: path[0],
+      y: path[1],
+      type: 'line',
+      mode: 'line',
+      name: '',
+      line: {
+        color: 'slateblue'
+      }
+    };
+
+    let layout = {
+      title: 'Brownian bridge sample path',
+      xaxis: {
+        title: 'Time',
+        showgrid: false
+      },
+      yaxis: {
+        title: '',
+        showgrid: false,
+      },
+      plot_bgcolor: 'transparent',
+      paper_bgcolor: 'transparent',
+    };
+
+    // Create the plot
+    Plotly.newPlot('sim-bb-plot', [trace], layout);
+  }
+
+  simBBPlot();
+
+  document.getElementById("sim-bb").addEventListener("click", simBBPlot)
+</script>
+
+<br>
 
 The <span style="color:#8B19FF">"marginal" distribution of a Brownian bridge</span> is given by $B_t \| B_T \sim N((t/T)B_T, t(T-t) / T)$. It's not too hard to show this. <span style="color: lightgrey">Hint: show that $B_t - (t/T)B_T$ is independent of $B_T$ and also make use of the law of total expectation in the calculations.</span> The distribution makes a lot of sense, right? Naturally as $t$ approaches $T$, the Brownian bridge gets closer to $B_T$ on average, and also the variance decreases (as we already know what $B_T$ is). From this, it's easy to see that <span style="color:#8B19FF">the Brownian bridge is a Gaussian process.</span>
 
@@ -348,9 +824,66 @@ But before we move on, you may wonder "if this post is about Brownian motions, t
 
 We've seen [previously](#the-reflection-principle) how we can apply the reflection principle to derive the distribution of the first hitting time for a standard Brownian motion. Let's now consider a more general problem. Let $\mu\in\mathbb R$ and $\sigma > 0$, then $\\{\mu t + \sigma B_t : t \ge 0\\}$ is a <span style="color:#8B19FF">scaled Brownian motion with drift (or a <i>generalised Brownian motion</i>)</span>. From our previous discussion of normal random variables, we can see that $\mu t + \sigma B_t \sim N(\mu t, \sigma^2 t)$. The drift parameter $\mu$ determines the direction and speed of the linear drift, while the scale parameter $\sigma$ determines the variance of the Brownian randomness.
 
-<span style="color: red">Simulation for generalised Brownian motion</span>
+<span style="color: orchid;">Let's look at some examples of sample paths of generalised Brownian motion.</span>
 
-Let $a > 0$ be a threshold value and $\tau_a = \inf\nolimits_{0 \le s \le t}\\{\mu t + \sigma B_t \ge a\\}$ be the first hitting time of when the generalised Brownian motion hits the threshold $a$. Our question is the same: what's the distribution of $\tau_a$?
+<div style="text-align: center;">
+  <span style="color: orchid;">$\mu =$</span>
+  <input type="number" id="gbm-mu-value" value="1" style="width: 40px;">
+  <span style="color: orchid;">&nbsp; $\sigma =$</span>
+  <input type="number" id="gbm-sigma-value" value="4" min="0" oninput="this.value = Math.abs(this.value)" style="width: 40px;">
+  &nbsp;
+  <button id="sim-gbm">Simulate</button>
+</div>
+
+<div id="sim-gbm-plot" style="width: 100%; height: 400px; background-color: transparent;"></div>
+
+
+<script type="text/javascript">
+  function simGBMPlot() {
+    let path = generateBrownianMotion(
+      document.getElementById("gbm-mu-value").value,
+      document.getElementById("gbm-sigma-value").value,
+      10,
+      0.1
+    );
+
+    let trace = {
+      x: path[0],
+      y: path[1],
+      type: 'line',
+      mode: 'line',
+      name: '',
+      line: {
+        color: 'slateblue'
+      }
+    };
+
+    let layout = {
+      title: 'Generalised Brownian motion sample path',
+      xaxis: {
+        title: 'Time',
+        showgrid: false
+      },
+      yaxis: {
+        title: '',
+        showgrid: false
+      },
+      plot_bgcolor: 'transparent',
+      paper_bgcolor: 'transparent',
+    };
+
+    // Create the plot
+    Plotly.newPlot('sim-gbm-plot', [trace], layout);
+  }
+
+  simGBMPlot();
+
+  document.getElementById("sim-gbm").addEventListener("click", simGBMPlot)
+</script>
+
+<br>
+
+Let $a > 0$ be a threshold value and $\tau_a = \inf\nolimits_{0 \le s \le t}\\{\mu t + \sigma B_t \ge a\\}$ be the first hitting time of when the generalised Brownian motion hits the threshold $a$. Our question is the same as [before](#the-reflection-principle): what's the distribution of $\tau_a$?
 
 <b>Theorem (first hitting time of generalised Brownian motion).</b> Let $a > 0$ and $t > 0$. Then,
 
@@ -474,7 +1007,7 @@ $$\mathbb P(\tau_a \le t | \mu t + \sigma B_t \in dx) = \mathbb P(\tau_a^0 \le t
 
 For $x > a$, $\mathbb P(\tau_a \le t \| \mu t + \sigma B_t \in dx) = 1$ as the generalised Brownian motion being at $x$ at time $t$ can only happen if $\tau_a \le t$ is also true.
 
-That's it!
+<span style="color:#8B19FF">That's it!</span>
 
 
 <br>
