@@ -21,7 +21,7 @@ published: true
   }
 
   function generateBrownianMotion(mu, sigma, T, stepsize) {
-    const steps = Math.round(T / stepsize);
+    const steps = Math.floor(T / stepsize) + 1;
     const times = Array.from({ length: steps }, (_, i) => i * stepsize);
     const normalRVs = generateNormal(0, stepsize * sigma, steps - 1);
     const increments = normalRVs.map(element => element + mu * stepsize);
@@ -36,7 +36,7 @@ published: true
   }
 
   function generateBrownianBridge(target, sigma, T, stepsize) {
-    const steps = Math.round(T / stepsize);
+    const steps = Math.floor(T / stepsize) + 1;
     const times = Array.from({ length: steps }, (_, i) => i * stepsize);
     const brownianMotionPath = generateBrownianMotion(0, sigma, T, stepsize);
     const finalBMPosition = brownianMotionPath[1][steps - 1];
@@ -384,7 +384,7 @@ Using the Gaussian property along with the previous result on the scaling of nor
     };
 
     let layout_out = {
-      title: 'Brownian motion, 0 < t < 10',
+      title: 'Brownian motion, 0 ≤ t ≤ 10',
       xaxis: {
         title: 'Time',
         showgrid: false
@@ -401,8 +401,8 @@ Using the Gaussian property along with the previous result on the scaling of nor
     Plotly.newPlot('sim-bm-zoom-out-plot', [trace_out], layout_out);
 
     let trace_in = {
-      x: path[0].slice(0,100),
-      y: path[1].slice(0,100),
+      x: path[0].slice(0,101),
+      y: path[1].slice(0,101),
       type: 'line',
       mode: 'line',
       name: '',
@@ -412,7 +412,7 @@ Using the Gaussian property along with the previous result on the scaling of nor
     };
 
     let layout_in = {
-      title: 'Brownian motion, 0 < t < 1',
+      title: 'Brownian motion, 0 ≤ t ≤ 1',
       xaxis: {
         title: 'Time',
         showgrid: false
@@ -592,9 +592,9 @@ How do we make sense of this result, and what we did in the proof? I find it eas
           reflectedPath.push(2 * threshold - path[1][i]);
         }
       }
-      document.getElementById("sim-reflection-principle-output").innerHTML = `The threshold is crossed at ${Math.round(reflectionStep * 0.1 * 100) / 100}s.`;
+      document.getElementById("sim-reflection-principle-output").innerHTML = `The threshold was crossed at ${Math.round(reflectionStep * 0.1 * 100) / 100}s.`;
     } else {
-      document.getElementById("sim-reflection-principle-output").innerHTML = `The threshold is never crossed.`;
+      document.getElementById("sim-reflection-principle-output").innerHTML = `The threshold wasn't crossed.`;
     }
 
     let traces = [
