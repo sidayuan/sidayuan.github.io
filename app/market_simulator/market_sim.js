@@ -595,6 +595,8 @@ class Game {
             },
             showlegend: false,
             displayModeBar: false,
+            plot_bgcolor: 'transparent',
+            paper_bgcolor: 'transparent',
         };
 
         // Check if 'moneyPlot' exists and then plot the data
@@ -640,6 +642,8 @@ class Game {
             },
             showlegend: false,
             displayModeBar: false,
+            plot_bgcolor: 'transparent',
+            paper_bgcolor: 'transparent',
         };
 
         // Check if 'valuationsPlot' exists and then plot the data for the density

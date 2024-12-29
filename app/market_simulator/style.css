@@ -50,13 +50,13 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0px; /* Add space between the plots */
-    min-width: 150px; /* Prevent the plots from becoming too small */
+    min-width: 100px; /* Prevent the plots from becoming too small */
 }
 
 /* Styling for the plot containers */
 #moneyPlot {
     width: 100%; /* Full width of the parent container */
-    height: 300px; /* Set height in percentage or pixels */
+    height: 350px; /* Set height in percentage or pixels */
     min-height: 100px; /* Prevent the plots from collapsing too much */
     max-height: 400px; /* Optional: Prevent it from growing too tall */
 }
@@ -64,7 +64,7 @@ body {
 #valuationsPlot {
     display: none;
     width: 100%; /* Full width of the parent container */
-    height: 300px; /* Set height in percentage or pixels */
+    height: 350px; /* Set height in percentage or pixels */
     min-height: 100px; /* Prevent the plots from collapsing too much */
     max-height: 400px; /* Optional: Prevent it from growing too tall */
 }
