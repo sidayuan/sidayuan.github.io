@@ -2,7 +2,7 @@
 layout: post
 title: "Bridging the gap: Extending the reflection principle via the Brownian bridge"
 author: Sida Yuan
-description: A gentle introduction to random variables, stochastic processes and the Brownian motion with interactive simulations. The distribution of the first hitting time of a Brownian motion with drift is derived without Girsanov's theorem, by using the reflection principle and the Brownian bridge.
+description: Deriving the first hitting time of Brownian motion with drift using the reflection principle and Brownian bridge. An intro to Brownian motion with simulations.
 date: 2024-12-29
 categories:
   - Technical
@@ -12,7 +12,6 @@ published: true
 redirect_from:
   - /technical/2024/12/29/bridging-the-gap-extending-the-reflection-principle-via-the-brownian-bridge/
   - /technical/2024/12/29/bridging-the-gap-extending-the-reflection-principle-via-the-brownian-bridge.html
-  - https://sidayuan.github.io/technical/2024/12/29/bridging-the-gap-extending-the-reflection-principle-via-the-brownian-bridge.html
 ---
 
 <script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script>
@@ -293,7 +292,7 @@ Let $\\{B_t : t \ge 0\\}$ be a stochastic process that takes values in $\mathbb 
 - <span style="color:#8B19FF">It has continuous paths.</span> That is, $B_t(\omega)$ is continuous in $t$ for every $\omega\in\Omega$. <span style="color: lightgrey">"Continuous" just means that there are no sudden jumps, i.e. you can trace the entire path with a pen without needing to lift it up.</span>
 - It starts from the origin, i.e. $B_0 = 0$.
 
-<span style="color: orchid;">Let's look at some examples of sample paths of Brownian motion.</span>
+<span style="color: orchid;">Let's look at simulations of the Brownian motion.</span>
 
 <div style="text-align: center;">
   <button id="sim-bm">Simulate</button>
@@ -446,7 +445,7 @@ Using the Gaussian property along with the previous result on the scaling of nor
 
 The reflection principle is a useful way to formalise the idea that at any point of a Brownian motion's path, if we flip the direction of the Brownian motion moving forward after that point, the entire path of the resulting stochastic process is still a Brownian motion.
 
-<span style="color: orchid;">Let's look at the sample paths of reflected Brownian motions at fixed reflection times. The reflected sample path looks just like a standard Brownian motion. After all, do you even know <i>which</i> path is the reflected one?</span>
+<span style="color: orchid;">Let's look at simulations of reflected Brownian motions at fixed reflection times. The reflected sample path looks just like a standard Brownian motion. After all, do you even know <i>which</i> path is the reflected one?</span>
 
 <div style="text-align: center;">
   <span style="color: orchid;">Reflection time:</span>
@@ -754,7 +753,7 @@ Let's talk a bit more about how this conditioning works. Since we know where $B_
 
 Why is this stochastic process called a "Brownian bridge"? Obviously it's "Brownian" because it's derived from a Brownian motion. But why "bridge"? Well, we know that $B_0 = 0$ and we know that $B_T = a$, so really this stochastic process is simply tracing out a continuous path from $(t, x) = (0, 0)$ to $(t, x) = (T, a)$. That is, it's creating a bridge between those two points, albeit a rough and jagged one.
 
-<span style="color: orchid;">Let's look at some examples of sample paths of Brownian bridge.</span>
+<span style="color: orchid;">Let's look at simulations of the Brownian bridge.</span>
 
 <div style="text-align: center;">
   <span style="color: orchid;">Conditioned on $B_{10} =$</span>
@@ -824,7 +823,7 @@ But before we move on, you may wonder "if this post is about Brownian motions, t
 
 We've seen [previously](#the-reflection-principle) how we can apply the reflection principle to derive the distribution of the first hitting time for a standard Brownian motion. Let's now consider a more general problem. Let $\mu\in\mathbb R$ and $\sigma > 0$, then $\\{\mu t + \sigma B_t : t \ge 0\\}$ is a <span style="color:#8B19FF">scaled Brownian motion with drift (or a <i>generalised Brownian motion</i>)</span>. From our previous discussion of normal random variables, we can see that $\mu t + \sigma B_t \sim N(\mu t, \sigma^2 t)$. The drift parameter $\mu$ determines the direction and speed of the linear drift, while the scale parameter $\sigma$ determines the variance of the Brownian randomness.
 
-<span style="color: orchid;">Let's look at some examples of sample paths of generalised Brownian motion.</span>
+<span style="color: orchid;">Let's look at simulations of the generalised Brownian motion (with drift).</span>
 
 <div style="text-align: center;">
   <span style="color: orchid;">$\mu =$</span>
