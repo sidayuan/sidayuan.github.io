@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Bridging the gap: extending the reflection principle via the Brownian bridge"
+title: "Bridging the gap: Extending the reflection principle via the Brownian bridge"
 author: Sida Yuan
 description: A gentle introduction to random variables, stochastic processes and the Brownian motion with interactive simulations. The distribution of the first hitting time of a Brownian motion with drift is derived without Girsanov's theorem, by using the reflection principle and the Brownian bridge.
 date: 2024-12-29
@@ -10,6 +10,7 @@ tags:
   - Mathematics
 published: true
 redirect_from:
+  - /technical/2024/12/29/bridging-the-gap-extending-the-reflection-principle-via-the-brownian-bridge/
   - /technical/2024/12/29/bridging-the-gap-extending-the-reflection-principle-via-the-brownian-bridge.html
   - https://sidayuan.github.io/technical/2024/12/29/bridging-the-gap-extending-the-reflection-principle-via-the-brownian-bridge.html
 ---
