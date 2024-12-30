@@ -11,6 +11,7 @@ tags:
 published: true
 redirect_from:
   - /technical/2024/12/29/bridging-the-gap-extending-the-reflection-principle-via-the-brownian-bridge.html
+  - https://sidayuan.github.io/technical/2024/12/29/bridging-the-gap-extending-the-reflection-principle-via-the-brownian-bridge.html
 ---
 
 <script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script>
