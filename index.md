@@ -10,7 +10,7 @@ permalink: /
 I'm a nerd who enjoys exploring various topics. I need a place to dump some of the stuff on my mind, and so here it is.
 
 Highlights:
-- [Bridging the gap: extending the reflection principle via the Brownian bridge](/blog/bridging-the-gap-extending-the-reflection-principle-via-the-brownian-bridge/)
+- [Bridging the gap: Extending the reflection principle via the Brownian bridge](/blog/bridging-the-gap-extending-the-reflection-principle-via-the-brownian-bridge/)
 - [Market simulator game](/app/market_simulator/)
 
 <br>
