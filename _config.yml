@@ -41,7 +41,7 @@ header_pages:
 
 # Build settings
 theme: minima
-
+safe: false
 plugins:
   - jekyll-feed
   - jekyll-archives
