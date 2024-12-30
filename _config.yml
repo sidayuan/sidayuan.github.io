@@ -35,6 +35,10 @@ linkedin_username: sida-yuan
 #twitter_username:
 #github_username:
 
+header_pages:
+  - 1_blog.md
+  - 2_app.md
+
 # Build settings
 theme: minima
 

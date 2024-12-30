@@ -1,6 +1,8 @@
 ---
 layout: default
+title: "Sida Yuan"
 description: A data scientist by trade and a mathematician by nature. This is where you can find my personal apps and writings on a variety of subjects.
+permalink: /
 ---
 
 # Welcome!
@@ -17,7 +19,6 @@ Highlights:
 
 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
 
-  <!-- Text on the Left -->
   <div style="flex: 1; padding-right: 20px;">
     <p>Hello!</p>
     <p>My name is <span style="color:#8B19FF">Sida Yuan</span> <span style="color:lightgrey">(he/him)</span></p>
@@ -25,7 +26,6 @@ Highlights:
 
   </div>
 
-  <!-- Image on the Right -->
   <div style="flex: 1;">
     <img src="{{ site.baseurl }}/assets/images/Sida in Lijiang.png" alt="Me in Lijiang 2024" style="max-width: 100%; width: auto;">
   </div>
