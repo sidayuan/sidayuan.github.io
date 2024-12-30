@@ -1,6 +1,6 @@
 ---
 layout: compact
-description: A market simulation game in JavaScript that uses some stochastic modelling and distribution theory.
+description: A market simulation game. How fast can you get to $1M?
 ---
 
 <h2 style="text-align: left; color: lightslategray;" markdown="1"><b>Market Simulator</b></h2>

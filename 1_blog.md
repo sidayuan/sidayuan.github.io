@@ -1,8 +1,8 @@
 ---
 layout: home
 title: Blog
-description: This is where I chuck my thoughts.
+description: The brain dump of a mathematician and data scientist.
 permalink: /blog/
 ---
 
-Prepare for braindump.
+Prepare for brain dump.

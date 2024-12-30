@@ -1,11 +1,15 @@
 ---
 layout: default
-title: About
+description: A data scientist by trade and a mathematician by nature. This is where you can find my personal apps and writings on a variety of subjects.
 ---
 
 # Welcome!
 
 I'm a nerd who enjoys exploring various topics. I need a place to dump some of the stuff on my mind, and so here it is.
+
+Highlights:
+- [Bridging the gap: extending the reflection principle via the Brownian bridge](/blog/bridging-the-gap-extending-the-reflection-principle-via-the-brownian-bridge/)
+- [Market simulator game](/app/market_simulator/)
 
 <br>
 
@@ -16,8 +20,8 @@ I'm a nerd who enjoys exploring various topics. I need a place to dump some of t
   <!-- Text on the Left -->
   <div style="flex: 1; padding-right: 20px;">
     <p>Hello!</p>
-    <p>My name is Sida Yuan <span style="color:lightgrey">(he/him)</span></p>
-    <p>I was born in China, grew up in New Zealand and I've been living in Sydney since 2009</p>
+    <p>My name is <span style="color:#8B19FF">Sida Yuan</span> <span style="color:lightgrey">(he/him)</span></p>
+    <p>I was born in China, grew up in New Zealand and I've been living in <span style="color:#8B19FF">Sydney</span> since 2009</p>
 
   </div>
 
@@ -29,7 +33,7 @@ I'm a nerd who enjoys exploring various topics. I need a place to dump some of t
 </div>
 
 
-I'm a data scientist by trade and a mathematician by nature.
+I'm a <span style="color:#8B19FF">data scientist</span> by trade and a <span style="color:#8B19FF">mathematician</span> by nature.
 
 I currently work at [Canva](https://www.canva.com/). <span style="color:lightgrey">It should go without saying that absolutely nothing on this website reflects the views of my past and present employers, institutions and colleagues. This is <i>my</i> space.</span>
 

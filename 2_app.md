@@ -1,7 +1,7 @@
 ---
 layout: page
 title: Apps
-description: Apps and games
+description: Apps and games made by Sida Yuan.
 permalink: /app/
 ---
 
