@@ -1,11 +1,12 @@
 ---
 layout: compact
-description: An app that aggregates ranked lists of individuals into an overall preference ranking that represents the group. Useful for making decisions democratically or just for fun!
+title: "Ranked list aggregator"
+description: An app that aggregates personal ranked lists into a group preference ranking. Perfect for democratic decision-making or just for fun. Try it now!
 ---
 
 <link rel="stylesheet" href="style.css">
 
-<h2 markdown="1"><b>Ranked list aggregator</b></h2>
+# Ranked list aggregator
 
 Let's say you have a group of friends, and each person has a ranking of their favourite movies of all time. You want to determine a ranking that best captures your collective taste in movies. Well buddy, this one's for you.
 

@@ -35,7 +35,7 @@ Highlights:
 
 I'm a <span style="color:#8B19FF">data scientist</span> by trade and a <span style="color:#8B19FF">mathematician</span> by nature.
 
-I currently work at [Canva](https://www.canva.com/). <span style="color:lightgrey">It should go without saying that absolutely nothing on this website reflects the views of my past and present employers, institutions and colleagues. This is <i>my</i> space.</span>
+I currently work at [Canva](https://www.canva.com/). <span style="color:lightgrey">It should go without saying that absolutely nothing on this website reflects the views of my past and present employers, institutions and colleagues. This is my <i>personal</i> space.</span>
 
 I graduated with a Bachelor of Science (Advanced Mathematics) (Honours) from the University of Sydney in 2020
 - Thesis: <i>Series Representations of Lévy Processes and Applications</i>
@@ -46,6 +46,7 @@ I graduated with a Bachelor of Science (Advanced Mathematics) (Honours) from the
   <span style="color:lightgrey">Well, if you insist...</span>
 
   <ul>
+    <li>University Medal</li>
     <li>KE Bullen Memorial Prize
       <ul>
         <li>Top student in Applied Mathematics Honours</li>
@@ -57,16 +58,14 @@ I graduated with a Bachelor of Science (Advanced Mathematics) (Honours) from the
       </ul>
     </li>
     <li>Dean's List of Excellence in Academic Performance 2020</li>
-    <li>University Medal</li>
-    <li>Dean's List of Excellence in Academic Performance 2019</li>
     <li>Computer Science Undergraduate High Honour Roll</li>
     <li>George Allen Scholarship in Applied Mathematics</li>
     <li>University of Sydney Honours Scholarship</li>
     <li>Science Research Experience Scholarship 2019/20</li>
-    <li>Dean's List of Excellence in Academic Performance 2018</li>
+    <li>Dean's List of Excellence in Academic Performance 2019</li>
     <li>Academic Merit Prize 2018</li>
     <li>Denison Summer Research Scholarship 2018/19</li>
-    <li>Dean's List of Excellence in Academic Performance 2017</li>
+    <li>Dean's List of Excellence in Academic Performance 2018</li>
     <li>'Taste of Research' Summer Scholarship 2017/18
       <ul>
         <li>This one's for the University of New South Wales</li>
@@ -77,6 +76,7 @@ I graduated with a Bachelor of Science (Advanced Mathematics) (Honours) from the
         <li>Essay: <i>Applications of Game Theory to Evolutionary Biology</i></li>
       </ul>
     </li>
+    <li>Dean's List of Excellence in Academic Performance 2017</li>
     <li>Faculty of Science - Dean's Scholarship in Science</li>
     <li>Academic Merit Prize 2016</li>
     <li>Dean's List of Excellence in Academic Performance 2016</li>
@@ -84,7 +84,7 @@ I graduated with a Bachelor of Science (Advanced Mathematics) (Honours) from the
   </ul></details>
 
 
-During my time at university, I was conducting mathematics research in stochastic processes (a subfield of probability theory)
+During my time at university, I was conducting mathematics research in stochastic processes
 - S. Yuan and R. Kawai. [Numerical aspects of shot noise representation of infinitely divisible laws and related processes](https://projecteuclid.org/journals/probability-surveys/volume-18/issue-none/Numerical-aspects-of-shot-noise-representation-of-infinitely-divisible-laws/10.1214/20-PS359.full), <i>Probability Surveys</i>, <b>18</b>, 2021.
 - S. Yuan and R. Kawai. [Asymptotic degeneracy and subdiffusivity](https://iopscience.iop.org/article/10.1088/1751-8121/ab69a5), <i>Journal of Physics A: Mathematical and Theoretical</i>, <b>53</b>(9), 2020.
 
