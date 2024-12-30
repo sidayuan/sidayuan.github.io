@@ -28,7 +28,7 @@ head:
       }
     </style>
 description: >- # this means to ignore newlines until "baseurl:"
-  A brain dump of a mathematician and a data scientist.
+  The brain dump of a mathematician and a data scientist
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
 linkedin_username: sida-yuan
@@ -43,6 +43,12 @@ plugins:
   - jekyll-archives
   - jekyll-sitemap
   - jekyll-toc
+
+defaults:
+  - scope:
+      path: "_posts"
+    values:
+      permalink: /blog/:title/
 
 google_analytics: "G-FY6MPJ4ZSP"
 

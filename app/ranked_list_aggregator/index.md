@@ -1,6 +1,6 @@
 ---
 layout: compact
-description: An app that aggregates ranked lists of individuals into an overall preference ranking that represents the group.
+description: An app that aggregates ranked lists of individuals into an overall preference ranking that represents the group. Useful for making decisions democratically or just for fun!
 ---
 
 <link rel="stylesheet" href="style.css">

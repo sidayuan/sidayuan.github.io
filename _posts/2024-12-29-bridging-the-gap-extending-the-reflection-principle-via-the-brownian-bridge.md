@@ -2,7 +2,7 @@
 layout: post
 title: "Bridging the gap: extending the reflection principle via the Brownian bridge"
 author: Sida Yuan
-description:
+description: A gentle introduction to random variables, stochastic processes and the Brownian motion with interactive simulations. The distribution of the first hitting time of a Brownian motion with drift is derived without Girsanov's theorem, by using the reflection principle and the Brownian bridge.
 date: 2024-12-29
 categories:
   - Technical
@@ -582,8 +582,6 @@ How do we make sense of this result, and what we did in the proof? I find it eas
     let reflectedPath = [];
     let threshold = document.getElementById("threshold-value").value;
     let reflectionStep = path[1].findIndex(num => num >= threshold);
-    console.log(path[1]);
-    console.log(reflectionStep);
     if (reflectionStep != -1) {
       for (let i = 0; i < path[0].length; i++) {
         if (i < reflectionStep) {
@@ -689,8 +687,6 @@ This version of the reflection principle formalises very explicitly the idea tha
     let reflectedPath = [];
     let threshold = 0.16;
     let reflectionStep = path[1].findIndex(num => num >= threshold);
-    console.log(path[1]);
-    console.log(reflectionStep);
     if (reflectionStep != -1) {
       for (let i = 0; i < path[0].length; i++) {
         if (i < reflectionStep) {
