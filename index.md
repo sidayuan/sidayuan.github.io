@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Sida Yuan"
-description: A data scientist by trade and a mathematician by nature. This is where you can find my personal apps and writings on a variety of subjects.
+description: Hello! My name is Sida Yuan and I’m a mathematician and a data scientist. This is where I post my personal apps and writings on random things that interest me.
 permalink: /
 ---
 
@@ -27,7 +27,7 @@ Highlights:
   </div>
 
   <div style="flex: 1;">
-    <img src="{{ site.baseurl }}/assets/images/Sida in Lijiang.png" alt="Me in Lijiang 2024" style="max-width: 100%; width: auto;">
+    <img src="{{ site.baseurl }}/assets/images/Sida in Lijiang.png" alt="Sida Yuan in Lijiang 2024" style="max-width: 100%; width: auto;">
   </div>
 
 </div>
