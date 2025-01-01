@@ -1,7 +1,6 @@
 ---
 layout: default
 title: "Sida Yuan"
-description: Hello! My name is Sida Yuan and I’m a mathematician and a data scientist. This is where I post my personal apps and writings on random things that interest me.
 permalink: /
 ---
 
