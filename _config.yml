@@ -30,7 +30,7 @@ head:
 description: >- # this means to ignore newlines until "baseurl:"
   The brain dump of a mathematician and a data scientist
 baseurl: "" # the subpath of your site, e.g. /blog
-url: "" # the base hostname & protocol for your site, e.g. http://example.com
+url: https://sidayuan.github.io # the base hostname & protocol for your site, e.g. http://example.com
 linkedin_username: sida-yuan
 #twitter_username:
 #github_username:
