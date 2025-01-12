@@ -1,15 +1,107 @@
 // Set up the canvas
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const gameCanvas = document.getElementById('gameCanvas');
+const gameCtx = gameCanvas.getContext('2d');
+
+const messageCanvas = document.getElementById('messageCanvas');
+const messageCtx = messageCanvas.getContext('2d');
 
 function calculateDistance(a, b) { return Math.sqrt(Math.pow(a[0] - b[0], 2) + Math.pow(a[1] - b[1], 2)) }
 
-function findNearbyNodes(nodes, node, radius) {
+function findNearbyNodes(nodes, node, radius, exclude) {
   const nearbyNodes = [];
   for (let i = 0; i < nodes.length; i++) {
-    if (calculateDistance(nodes[node], nodes[i]) <= radius) { nearbyNodes.push(i); }
+    if ((calculateDistance(nodes[node], nodes[i]) <= radius) && !(exclude.includes(i))) { nearbyNodes.push(i); }
   }
   return nearbyNodes;
+}
+
+function generateText(context, messages, turn, x, y, maxWidth, lineHeight) {
+  messageCtx.fillStyle = "white";
+  messageCtx.font = "14px Arial";
+  messageCtx.textAlign = 'left';
+  messageCtx.textBaseline = 'bottom';
+  const maxHeight = messageCanvas.height * 0.9;
+  const maxLines = Math.floor(maxHeight / lineHeight);
+  let lineCount = 3; // leaving room for buttons
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const text = '> ' + messages[i][1]
+    const words = text.split(' ');
+    let line = '';
+    let lines = [];
+
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      const testWidth = context.measureText(testLine).width;
+
+      // check if the test line is within the maxWidth
+      if (testWidth > maxWidth && n > 0) {
+        lines.push(line);
+        line = words[n] + ' '; // start a new line with the current word
+      } else {
+        line = testLine;
+      }
+    }
+
+    lines.push(line);
+
+    if (turn == messages[i][0]) {
+      messageCtx.font = "bold 14px Arial";
+    } else {
+      messageCtx.font = "14px Arial";
+    }
+
+    // draw each line on the canvas
+    for (let j = lines.length - 1; j >= 0; j--) {
+      context.fillText(lines[j], x + 13 * Math.min(j, 1), y + (maxLines - lineCount) * lineHeight);
+      lineCount++;
+    }
+
+    context.fillText('', x + 13 * Math.min(i, 1), y + (maxLines - lineCount) * lineHeight)
+    lineCount++;
+    if (lineCount > maxLines) { break; }
+  }
+}
+
+function generateButtons(context, options, lineHeight) {
+  const maxHeight = messageCanvas.height * 0.96;
+  const buttonHeight = 30;
+  const buttonWidth = 120;
+  const padding = 5;
+
+  for (let i = 0; i < options.length; i++) {
+    const option = options[i];
+    const x = messageCanvas.width * 0.035 + i * (buttonWidth + padding);
+    const y = maxHeight - lineHeight;
+
+    // draw rectangle
+    context.fillStyle = "white";
+    context.fillRect(x, y, buttonWidth, buttonHeight);
+
+    context.fillStyle = "black";
+    context.font = "bold 14px Arial";
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(option, x + buttonWidth / 2, y + buttonHeight/2);
+  }  
+}
+
+function checkMessageButtonClick(event) {
+  const mouseX = event.offsetX;
+  const mouseY = event.offsetY;
+  const maxHeight = messageCanvas.height * 0.96;
+  const buttonHeight = 30;
+  const buttonWidth = 120;
+  const padding = 5;
+  yLower = maxHeight - 20;
+  yUpper = yLower + buttonHeight;
+  xLower = Array.from([0, 1, 2], (i) => messageCanvas.width * 0.035 + i * (buttonWidth + padding));
+  xUpper = Array.from(xLower, (x) => x + buttonWidth);
+  for (let i = 0; i < 3; i++) {
+    if (mouseX >= xLower[i] && mouseX <= xUpper[i] && mouseY >= yLower && mouseY <= yUpper) {
+      //console.log(`${i} clicked!`);
+      return i;
+    }
+  }
 }
 
 class Player {
@@ -17,6 +109,8 @@ class Player {
     this.position = initialPosition;
     this.moveRadius = moveRadius;
     this.nextPosition = null;
+    this.detectableByEnemies = true;
+    this.radarRadius = 3 * this.moveRadius; // can be parametrised
   }
 
   setNextPosition(nextPosition, nodes) {
@@ -43,28 +137,41 @@ class Player {
 class Enemy {
   constructor(initialPosition, moveRadius) {
     this.position = initialPosition;
+    this.targetPosition = null;
     this.moveRadius = moveRadius;
     this.nextPosition = null;
-    this.inPursuit = true;
+    this.detectableByPlayer = false;
+    this.detectionRadius = 2 * this.moveRadius; // can be parametrised
   }
 
-  decideNextPosition(nodes, player) {
-    const nearbyNodes = findNearbyNodes(nodes, this.position, this.moveRadius);
-    if (this.inPursuit) {
-      const nearbyNodesPlayer = findNearbyNodes(nodes, player.position, player.moveRadius);
+  decideTargetPosition(nodes, player, safeNode, game) {
+    const targetPositionWasNull = this.targetPosition == null;
+    if ((player.detectableByEnemies) && (player.position != safeNode) && (calculateDistance(nodes[this.position], nodes[player.position]) <= this.detectionRadius)) {
+      if (targetPositionWasNull) { game.appendMessage(game.messageList.detectedByEnemy); }
+      this.targetPosition = nodes[player.position];
+    }
+    if ((this.position == this.targetPosition) || (player.position == safeNode)) { // randomly grazes if it reaches target position
+      this.targetPosition = null;
+    }
+  }
+
+  decideNextPosition(nodes, player, safeNode) {
+    const nearbyNodes = findNearbyNodes(nodes, this.position, this.moveRadius, [safeNode]);
+    if (this.targetPosition != null) {
+      const nearbyNodesPlayer = findNearbyNodes(nodes, player.position, player.moveRadius, [safeNode]);
       const intersectionNodes = nearbyNodes.filter(value => nearbyNodesPlayer.includes(value));
-      if (intersectionNodes.length > 0) {
+      if ((player.detectableByEnemies) && (intersectionNodes.length > 0)) { // if it can detect player AND reach the player's vicinity, it randomly picks such a node
         this.nextPosition = intersectionNodes[Math.floor(Math.random() * intersectionNodes.length)];
-      } else {
+      } else { // if enemy is still far from the player OR it can't detect the player, it chooses the approximate best path towards the target node
         // the following chase logic can be generalised using recursion
         const nearbyNodeSet = {}
         const paths = [];
         for (let i = 0; i < nearbyNodes.length; i++) {
-          nearbyNodeSet[[i]] = findNearbyNodes(nodes, nearbyNodes[i], this.moveRadius);
+          nearbyNodeSet[[i]] = findNearbyNodes(nodes, nearbyNodes[i], this.moveRadius, [safeNode]);
           for (let j = 0; j < nearbyNodeSet[[i]].length; j++) {
-            nearbyNodeSet[[i, j]] = findNearbyNodes(nodes, nearbyNodeSet[[i]][j], this.moveRadius);
+            nearbyNodeSet[[i, j]] = findNearbyNodes(nodes, nearbyNodeSet[[i]][j], this.moveRadius, [safeNode]);
               for (let k = 0; k < nearbyNodeSet[[i, j]].length; k++) {
-                if ((nearbyNodeSet[[i, j]][k] != nearbyNodeSet[[i]][j]) & (nearbyNodeSet[[i, j]][k] != nearbyNodes[i]) & (nearbyNodeSet[[i, j]][k] != this.position)) {
+                if ((nearbyNodeSet[[i, j]][k] != nearbyNodeSet[[i]][j]) && (nearbyNodeSet[[i, j]][k] != nearbyNodes[i]) && (nearbyNodeSet[[i, j]][k] != this.position)) {
                   paths.push([nearbyNodes[i], nearbyNodeSet[[i]][j], nearbyNodeSet[[i, j]][k]]);
                   if (player.position == nearbyNodeSet[[i, j]][k]) { break; }
                 }
@@ -103,18 +210,44 @@ class Game {
     enemyMoveRadius,
     enemyInitialPositions
   ) {
-    this.playerColor = 'Lime';
-    this.enemyColor = 'OrangeRed';
-    this.safeColor = 'DeepSkyBlue';
-    this.nodeColor = 'white';
+    this.colorMap = {
+      player : 'Lime',
+      playerMovementRadius : 'LimeGreen',
+      enemyPassive : 'LightCoral',
+      enemyActive : 'OrangeRed',
+      safe : 'DeepSkyBlue',
+      nodeVisited : 'White',
+      nodeUnvisited : 'Gray'
+    }
 
     this.turn = 0;
     this.numNodes = numNodes;
     this.nodeRadius = nodeRadius;
     this.nodes = [];
+    this.visitedNodes = [playerInitialPosition];
     this.generateNodes();
 
     this.safeNode = Math.floor(Math.random() * this.numNodes);
+    this.safeNodeVisible = true;
+
+    this.messageList = {
+      start : [`You've heard whispers about a sanctuary hidden from the UPA. You have nothing left to lose but your own life now.`],
+      win : [`You've reached what appears to be the fabled sanctuary. The UPA ships pursuing you gradually disperse as they seem unable to detect you. The dissidents welcome you into their hidden corner of the galaxy. "The hope for a better future is not lost," they say. "A day will come when the UPA ends and a brighter chapter begins."`],
+      loseCollision : [
+        `You tried your best, but the UPA corvette has tethered your ship. Only imprisonment or execution awaits you, and you're not sure which is worse.`,
+        `Your ship has been struck. The interstellar engine is malfunctioning. "I tried my best," you say in your last moments. "I tried my—"`,
+        `You see the missile from the cockpit of your ship growing larger and larger. Until, nothing.`
+      ],
+      detectedByEnemy : [
+        `You've been detected by a UPA ship!`,
+        `A UPA ship has found you!`,
+        `Your position has been discovered by a UPA ship!`,
+        `A UPA ship is inbound!`,
+        `A UPA ship has set course for your position!`,
+        `It looks like a UPA ship has noticed you!`
+      ]
+    };
+    this.messages = [];
 
     this.player = new Player(playerInitialPosition, playerMoveRadius);
     this.enemies = [];
@@ -123,53 +256,76 @@ class Game {
       this.enemies[i].decideNextPosition(this.nodes, this.player);
     }
 
-    this.draw()
+    this.appendMessage(this.messageList.start);
+    this.draw();
+    this.drawMessage();
+    //generateButtons(messageCtx, ['Option 1', 'Option 2', 'Option 3'], 20); // testing
+  }
+
+  appendMessage(messageArray) {
+    this.messages.push([this.turn, messageArray[Math.floor(Math.random() * messageArray.length)]]);
+  }
+
+  drawMessage() {
+    messageCtx.clearRect(0, 0, messageCanvas.width, messageCanvas.height);
+    generateText(messageCtx, this.messages, this.turn, messageCanvas.width * 0.03, messageCanvas.height * 0.05, messageCanvas.width * 0.85, 20);
   }
 
   generateNodes() {
     for (let i = 0; i < this.numNodes; i++) {
-      const x = Math.random() * canvas.width;
-      const y = Math.random() * canvas.height;
+      const x = Math.random() * gameCanvas.width;
+      const y = Math.random() * gameCanvas.height;
       this.nodes.push([x, y]);
     }
   }
 
   drawNodes() {
-    this.nodes.forEach(node => {
-      ctx.beginPath();
-      ctx.arc(node[0], node[1], this.nodeRadius, 0, Math.PI * 2);
-      ctx.fillStyle = this.nodeColor;
-      ctx.fill();
+    this.nodes.forEach((node, index) => {
+      gameCtx.beginPath();
+      gameCtx.arc(node[0], node[1], this.nodeRadius, 0, Math.PI * 2);
+      if (this.visitedNodes.includes(index)) {
+        gameCtx.fillStyle = this.colorMap.nodeVisited;
+      } else {
+        gameCtx.fillStyle = this.colorMap.nodeUnvisited;
+      }
+      gameCtx.fill();
     });
   }
 
   drawPlayerAndEnemies() {
-    ctx.beginPath();
-    ctx.arc(this.nodes[this.player.position][0], this.nodes[this.player.position][1], this.nodeRadius, 0, Math.PI * 2);
-    ctx.fillStyle = this.playerColor;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(this.nodes[this.player.position][0], this.nodes[this.player.position][1], this.player.moveRadius, 0, Math.PI * 2);
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "PaleGreen";
-    ctx.stroke();
+    gameCtx.beginPath();
+    gameCtx.arc(this.nodes[this.player.position][0], this.nodes[this.player.position][1], this.nodeRadius, 0, Math.PI * 2);
+    gameCtx.fillStyle = this.colorMap.player;
+    gameCtx.fill();
+    gameCtx.beginPath();
+    gameCtx.arc(this.nodes[this.player.position][0], this.nodes[this.player.position][1], this.player.moveRadius, 0, Math.PI * 2);
+    gameCtx.lineWidth = 1;
+    gameCtx.strokeStyle = this.colorMap.playerMovementRadius;
+    gameCtx.stroke();
     for (let i = 0; i < this.enemies.length; i++) {
-      ctx.beginPath();
-      ctx.arc(this.nodes[this.enemies[i].position][0], this.nodes[this.enemies[i].position][1], this.nodeRadius, 0, Math.PI * 2);
-      ctx.fillStyle = this.enemyColor;
-      ctx.fill();
+      if (calculateDistance(this.nodes[this.enemies[i].position], this.nodes[this.player.position]) > this.player.radarRadius) { continue; }
+      gameCtx.beginPath();
+      gameCtx.arc(this.nodes[this.enemies[i].position][0], this.nodes[this.enemies[i].position][1], this.nodeRadius, 0, Math.PI * 2);
+      if (this.enemies[i].targetPosition == null) {
+        gameCtx.fillStyle = this.colorMap.enemyPassive;
+      } else {
+        gameCtx.fillStyle = this.colorMap.enemyActive;
+      }
+      gameCtx.fill();
     }
   }
 
   drawSafeNode() {
-    ctx.beginPath();
-    ctx.arc(this.nodes[this.safeNode][0], this.nodes[this.safeNode][1], this.nodeRadius, 0, Math.PI * 2);
-    ctx.fillStyle = this.safeColor;
-    ctx.fill();
+    if (this.safeNodeVisible) {
+      gameCtx.beginPath();
+      gameCtx.arc(this.nodes[this.safeNode][0], this.nodes[this.safeNode][1], this.nodeRadius, 0, Math.PI * 2);
+      gameCtx.fillStyle = this.colorMap.safe;
+      gameCtx.fill();
+    }
   }
 
   draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas each time
+    gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height); // Clear canvas each time
     this.drawNodes();
     this.drawPlayerAndEnemies();
     this.drawSafeNode();
@@ -190,8 +346,11 @@ class Game {
 
   checkGameStatus() {
     if (this.isCollision()) {
+      this.appendMessage(this.messageList.loseCollision);
       alert(`Game Over! They've got you.`);
     } else if (this.isSafeNode()) {
+      this.player.detectableByEnemies = false;
+      this.appendMessage(this.messageList.win);
       alert(`You win! You're safe now.`);
     }
   }
@@ -212,12 +371,15 @@ class Game {
   nextTurn() {
     this.turn++;
     this.player.move();
+    if (!this.visitedNodes.includes(this.player.position)) { this.visitedNodes.push(this.player.position); }
     for (let i = 0; i < this.enemies.length; i++) {
       this.enemies[i].move();
-      this.enemies[i].decideNextPosition(this.nodes, this.player);
+      this.enemies[i].decideTargetPosition(this.nodes, this.player, this.safeNode, this);
+      this.enemies[i].decideNextPosition(this.nodes, this.player, this.safeNode);
     }
     this.draw();
     this.checkGameStatus();
+    this.drawMessage();
   }
 }
 
@@ -242,24 +404,30 @@ document.getElementById("new-game").addEventListener("click", function () {
   );
 });
 
-// Listen for click events to move the player
-canvas.addEventListener('click', (e) => {
+// listen for click events to move the player
+gameCanvas.addEventListener('click', (e) => {
   let mouseX = e.offsetX;
   let mouseY = e.offsetY;
   let positionClicked = game.findNodeByPosition(mouseX, mouseY);
   if (positionClicked != null) {
     game.player.setNextPosition(positionClicked, game.nodes);
     // indicate next position
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
     game.draw();
     if (game.player.nextPosition != null) {
-      ctx.beginPath();
-      ctx.moveTo(game.nodes[game.player.position][0], game.nodes[game.player.position][1]);
-      ctx.lineTo(game.nodes[game.player.nextPosition][0], game.nodes[game.player.nextPosition][1]);
-      ctx.strokeStyle = game.playerColor;
-      ctx.stroke();
+      gameCtx.beginPath();
+      gameCtx.moveTo(game.nodes[game.player.position][0], game.nodes[game.player.position][1]);
+      gameCtx.lineTo(game.nodes[game.player.nextPosition][0], game.nodes[game.player.nextPosition][1]);
+      gameCtx.strokeStyle = game.colorMap.player;
+      gameCtx.stroke();
     }
     }
+});
+
+// listen for click events for message canvas buttons
+messageCanvas.addEventListener('click', (event) => {
+  checkMessageButtonClick(event);
+  // TO-DO: logic for processing button click result
 });
 
 document.getElementById("next-turn").addEventListener("click", function () {
