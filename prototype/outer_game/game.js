@@ -21,7 +21,7 @@ function generateText(context, messages, turn, x, y, maxWidth, lineHeight) {
   messageCtx.textAlign = 'left';
   messageCtx.textBaseline = 'bottom';
   const maxHeight = messageCanvas.height * 0.9;
-  const maxLines = Math.floor(maxHeight / lineHeight);
+  const maxLines = Math.floor(maxHeight / lineHeight) - 1;
   let lineCount = 3; // leaving room for buttons
   for (let i = messages.length - 1; i >= 0; i--) {
     const text = '> ' + messages[i][1]
@@ -62,7 +62,7 @@ function generateText(context, messages, turn, x, y, maxWidth, lineHeight) {
   }
 }
 
-function generateButtons(context, options, lineHeight) {
+function generateButtons(options, lineHeight) {
   const maxHeight = messageCanvas.height * 0.96;
   const buttonHeight = 30;
   const buttonWidth = 120;
@@ -74,14 +74,14 @@ function generateButtons(context, options, lineHeight) {
     const y = maxHeight - lineHeight;
 
     // draw rectangle
-    context.fillStyle = "white";
-    context.fillRect(x, y, buttonWidth, buttonHeight);
+    messageCtx.fillStyle = "white";
+    messageCtx.fillRect(x, y, buttonWidth, buttonHeight);
 
-    context.fillStyle = "black";
-    context.font = "bold 14px Arial";
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(option, x + buttonWidth / 2, y + buttonHeight/2);
+    messageCtx.fillStyle = "black";
+    messageCtx.font = "bold 14px Arial";
+    messageCtx.textAlign = 'center';
+    messageCtx.textBaseline = 'middle';
+    messageCtx.fillText(option, x + buttonWidth / 2, y + buttonHeight/2);
   }  
 }
 
@@ -105,10 +105,12 @@ function checkMessageButtonClick(event) {
 }
 
 class Player {
-  constructor(initialPosition, moveRadius) {
+  constructor(initialPosition, initialFuel, moveRadius) {
     this.position = initialPosition;
+    this.fuel = initialFuel;
     this.moveRadius = moveRadius;
     this.nextPosition = null;
+    this.proposedFuelCost = null;
     this.detectableByEnemies = true;
     this.radarRadius = 3 * this.moveRadius; // can be parametrised
   }
@@ -118,7 +120,9 @@ class Player {
       this.nextPosition = null;
       return null;
     }
-    if (calculateDistance(nodes[this.position], nodes[nextPosition]) <= this.moveRadius) {
+    const proposedDistance = calculateDistance(nodes[this.position], nodes[nextPosition]);
+    if ((proposedDistance <= this.moveRadius) && (proposedDistance <= this.fuel)) {
+      this.proposedFuelCost = proposedDistance;
       this.nextPosition = nextPosition;
       return nextPosition;
     } else {
@@ -127,9 +131,11 @@ class Player {
   }
 
   move() {
-    if (this.nextPosition != null) {
+    if ((this.nextPosition != null) && (this.proposedFuelCost != null)) {
       this.position = this.nextPosition;
       this.nextPosition = null;
+      this.fuel -= this.proposedFuelCost;
+      this.proposedFuelCost = null;
     }
   }
 }
@@ -142,6 +148,8 @@ class Enemy {
     this.nextPosition = null;
     this.detectableByPlayer = false;
     this.detectionRadius = 2 * this.moveRadius; // can be parametrised
+    this.abandonThreshold = 5; // can be parametrised
+    this.lastDetectedPlayerTurn = null;
   }
 
   decideTargetPosition(nodes, player, safeNode, game) {
@@ -149,8 +157,9 @@ class Enemy {
     if ((player.detectableByEnemies) && (player.position != safeNode) && (calculateDistance(nodes[this.position], nodes[player.position]) <= this.detectionRadius)) {
       if (targetPositionWasNull) { game.appendMessage(game.messageList.detectedByEnemy); }
       this.targetPosition = nodes[player.position];
+      this.lastDetectedPlayerTurn = game.turn;
     }
-    if ((this.position == this.targetPosition) || (player.position == safeNode)) { // randomly grazes if it reaches target position
+    if ((this.position == this.targetPosition) || (game.turn - this.lastDetectedPlayerTurn > this.abandonThreshold) || (player.position == safeNode)) { // randomly grazes if it reaches target position
       this.targetPosition = null;
     }
   }
@@ -206,6 +215,7 @@ class Game {
     numNodes,
     nodeRadius,
     playerMoveRadius,
+    playerInitialFuel,
     playerInitialPosition,
     enemyMoveRadius,
     enemyInitialPositions
@@ -249,7 +259,7 @@ class Game {
     };
     this.messages = [];
 
-    this.player = new Player(playerInitialPosition, playerMoveRadius);
+    this.player = new Player(playerInitialPosition, playerInitialFuel, playerMoveRadius);
     this.enemies = [];
     for (let i = 0; i < enemyInitialPositions.length; i++) {
       this.enemies.push(new Enemy(enemyInitialPositions[i], enemyMoveRadius[i]));
@@ -259,16 +269,27 @@ class Game {
     this.appendMessage(this.messageList.start);
     this.draw();
     this.drawMessage();
-    //generateButtons(messageCtx, ['Option 1', 'Option 2', 'Option 3'], 20); // testing
+    //generateButtons(['Option 1', 'Option 2', 'Option 3'], 20); // testing
   }
 
   appendMessage(messageArray) {
     this.messages.push([this.turn, messageArray[Math.floor(Math.random() * messageArray.length)]]);
   }
 
+  drawStatus() {
+    messageCtx.clearRect(0, 0, messageCanvas.width, 30);
+    messageCtx.font = "bold 14px Arial";
+    if ((this.player.proposedFuelCost == null) || (Math.round(this.player.proposedFuelCost / 10 == 0))) {
+      messageCtx.fillText(`Fuel: ${Math.round(this.player.fuel / 10)}`, messageCanvas.width * 0.03, messageCanvas.height * 0.05);
+    } else {
+      messageCtx.fillText(`Fuel: ${Math.round(this.player.fuel / 10)} - ${Math.round(this.player.proposedFuelCost / 10)}`, messageCanvas.width * 0.03, messageCanvas.height * 0.05);
+    }
+  }
+
   drawMessage() {
-    messageCtx.clearRect(0, 0, messageCanvas.width, messageCanvas.height);
+    messageCtx.clearRect(0, 20, messageCanvas.width, messageCanvas.height);
     generateText(messageCtx, this.messages, this.turn, messageCanvas.width * 0.03, messageCanvas.height * 0.05, messageCanvas.width * 0.85, 20);
+    this.drawStatus();
   }
 
   generateNodes() {
@@ -298,10 +319,11 @@ class Game {
     gameCtx.fillStyle = this.colorMap.player;
     gameCtx.fill();
     gameCtx.beginPath();
-    gameCtx.arc(this.nodes[this.player.position][0], this.nodes[this.player.position][1], this.player.moveRadius, 0, Math.PI * 2);
+    gameCtx.arc(this.nodes[this.player.position][0], this.nodes[this.player.position][1], Math.min(this.player.moveRadius, this.player.fuel), 0, Math.PI * 2);
     gameCtx.lineWidth = 1;
     gameCtx.strokeStyle = this.colorMap.playerMovementRadius;
     gameCtx.stroke();
+    this.drawStatus();
     for (let i = 0; i < this.enemies.length; i++) {
       if (calculateDistance(this.nodes[this.enemies[i].position], this.nodes[this.player.position]) > this.player.radarRadius) { continue; }
       gameCtx.beginPath();
@@ -325,7 +347,8 @@ class Game {
   }
 
   draw() {
-    gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height); // Clear canvas each time
+    gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height); // omitting the first line
+    this.drawStatus()
     this.drawNodes();
     this.drawPlayerAndEnemies();
     this.drawSafeNode();
@@ -387,9 +410,10 @@ let game = new Game(
   numNodes = 150,
   nodeRadius = 5,
   playerMoveRadius = 80,
-  playerInitialPosition = Math.floor(Math.random() * 100),
+  playerInitialFuel = 2000,
+  playerInitialPosition = Math.floor(Math.random() * 150),
   enemyMoveRadius = [80, 80],
-  enemyInitialPositions = Array.from({ length: 2 }, () => Math.floor(Math.random() * 100))
+  enemyInitialPositions = Array.from({ length: 2 }, () => Math.floor(Math.random() * 150))
 );
 
 document.getElementById("new-game").addEventListener("click", function () {
@@ -398,9 +422,10 @@ document.getElementById("new-game").addEventListener("click", function () {
     numNodes = 150,
     nodeRadius = 5,
     playerMoveRadius = 80,
-    playerInitialPosition = Math.floor(Math.random() * 100),
+    playerInitialFuel = 2000,
+    playerInitialPosition = Math.floor(Math.random() * 150),
     enemyMoveRadius = Array.from({ length: numEnemies }, () => 80),
-    enemyInitialPositions = Array.from({ length: numEnemies }, () => Math.floor(Math.random() * 100))
+    enemyInitialPositions = Array.from({ length: numEnemies }, () => Math.floor(Math.random() * 150))
   );
 });
 
