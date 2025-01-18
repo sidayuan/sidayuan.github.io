@@ -62,11 +62,14 @@ function generateText(context, messages, turn, x, y, maxWidth, lineHeight) {
   }
 }
 
-function generateButtons(options, lineHeight) {
+function generateButtons(options) {
+  const lineHeight = 20;
   const maxHeight = messageCanvas.height * 0.96;
   const buttonHeight = 30;
   const buttonWidth = 120;
   const padding = 5;
+
+  messageCtx.clearRect(0, maxHeight - lineHeight, buttonWidth, buttonHeight);
 
   for (let i = 0; i < options.length; i++) {
     const option = options[i];
@@ -82,7 +85,7 @@ function generateButtons(options, lineHeight) {
     messageCtx.textAlign = 'center';
     messageCtx.textBaseline = 'middle';
     messageCtx.fillText(option, x + buttonWidth / 2, y + buttonHeight/2);
-  }  
+  }
 }
 
 function checkMessageButtonClick(event) {
@@ -98,20 +101,29 @@ function checkMessageButtonClick(event) {
   xUpper = Array.from(xLower, (x) => x + buttonWidth);
   for (let i = 0; i < 3; i++) {
     if (mouseX >= xLower[i] && mouseX <= xUpper[i] && mouseY >= yLower && mouseY <= yUpper) {
-      //console.log(`${i} clicked!`);
       return i;
     }
+  }
+  const cloakXLower = messageCanvas.width * 0.03 + 2 * 120 - 10;
+  const cloakYLower = messageCanvas.height * 0.05 + 5;
+  const cloakWidth = 90;
+  const cloakHeight = -25;
+  if (mouseX >= cloakXLower && mouseX <= cloakXLower + cloakWidth && mouseY >= cloakYLower + cloakHeight && mouseY <= cloakYLower) {
+    return 'useCloak';
   }
 }
 
 class Player {
-  constructor(initialPosition, initialFuel, moveRadius) {
+  constructor(initialPosition, moveRadius, initialFuel, initialMissiles, initialCloaks) {
     this.position = initialPosition;
     this.fuel = initialFuel;
+    this.missiles = initialMissiles;
+    this.cloaks = initialCloaks;
     this.moveRadius = moveRadius;
     this.nextPosition = null;
     this.proposedFuelCost = null;
     this.detectableByEnemies = true;
+    this.cloakedDuration = 0;
     this.radarRadius = 3 * this.moveRadius; // can be parametrised
   }
 
@@ -140,11 +152,21 @@ class Player {
   }
 }
 
+class Node {
+  constructor(position, type, visitMessage) {
+    this.position = position;
+    this.type = type;
+    this.visitMessage = visitMessage;
+    this.visited = false;
+  }
+}
+
 class Enemy {
   constructor(initialPosition, moveRadius) {
     this.position = initialPosition;
     this.targetPosition = null;
     this.moveRadius = moveRadius;
+    this.stunDuration = 0;
     this.nextPosition = null;
     this.detectableByPlayer = false;
     this.detectionRadius = 2 * this.moveRadius; // can be parametrised
@@ -205,8 +227,12 @@ class Enemy {
   }
 
   move() {
-    this.position = this.nextPosition;
-    this.nextPosition = null;
+    if (this.stunDuration > 0) {
+      this.stunDuration--;
+    } else {
+      this.position = this.nextPosition;
+      this.nextPosition = null;
+    }
   }
 }
 
@@ -216,12 +242,15 @@ class Game {
     nodeRadius,
     playerMoveRadius,
     playerInitialFuel,
+    playerInitialMissiles,
+    playerInitialCloaks,
     playerInitialPosition,
     enemyMoveRadius,
     enemyInitialPositions
   ) {
     this.colorMap = {
       player : 'Lime',
+      playerUndetectable : 'LightGreen',
       playerMovementRadius : 'LimeGreen',
       enemyPassive : 'LightCoral',
       enemyActive : 'OrangeRed',
@@ -231,6 +260,9 @@ class Game {
     }
 
     this.turn = 0;
+    this.state = ['move', null]; // a pair, where the first is state and second is reason
+    this.buttonOptions = ['Next turn'];
+    this.buttonOptionClicked = null; // tracking the last button clicked
     this.numNodes = numNodes;
     this.nodeRadius = nodeRadius;
     this.nodes = [];
@@ -242,7 +274,7 @@ class Game {
 
     this.messageList = {
       start : [`You've heard whispers about a sanctuary hidden from the UPA. You have nothing left to lose but your own life now.`],
-      win : [`You've reached what appears to be the fabled sanctuary. The UPA ships pursuing you gradually disperse as they seem unable to detect you. The dissidents welcome you into their hidden corner of the galaxy. "The hope for a better future is not lost," they say. "A day will come when the UPA ends and a brighter chapter begins."`],
+      winSanctuary : [`You've reached what appears to be the fabled sanctuary. The UPA ships pursuing you gradually disperse as they seem unable to detect you. The dissidents welcome you into their hidden corner of the galaxy. "The hope for a better future is not lost," they say. "A day will come when the UPA ends and a brighter chapter begins."`],
       loseCollision : [
         `You tried your best, but the UPA corvette has tethered your ship. Only imprisonment or execution awaits you, and you're not sure which is worse.`,
         `Your ship has been struck. The interstellar engine is malfunctioning. "I tried my best," you say in your last moments. "I tried my—"`,
@@ -255,11 +287,52 @@ class Game {
         `A UPA ship is inbound!`,
         `A UPA ship has set course for your position!`,
         `It looks like a UPA ship has noticed you!`
+      ],
+      singleShipCollision : [
+        `A UPA ship is about to enter missile range!`,
+        `A UPA ship is closing in fast!`,
+        `A UPA ship is on your tail!`,
+        `A UPA ship has locked onto you!`
+      ],
+      multipleShipsCollision(n) {
+        return [
+          `There are ${n} UPA ships in your vicinity.`,
+          `There are ${n} UPA ships surrounding you.`,
+          `There are ${n} UPA ships on top of you.`,
+          `There are ${n} UPA ships approaching you.`
+        ]
+      },
+      destroyedEnemy : [
+        `The UPA ship explodes into harmless shrapnel.`,
+        `The UPA ship splits in half.`,
+        `The UPA ship becomes yet another space junk.`,
+        `The UPA ship loses all signs of life.`
+      ],
+      stunnedEnemy : [
+        `The UPA ship is disabled for now.`,
+        `The UPA ship has gone cold for now.`,
+        `The UPA ship drifts harmlessly for now.`,
+        `The UPA ship is stunned for now.`
+      ],
+      missedEnemy : [
+        `Your missile missed!`,
+        `The UPA ship evaded your missile!`,
+        `Your missile was intercepted!`,
+        `Your missile uselessly struck a piece of space junk!`
+      ],
+      ignoreStunnedEnemy : [
+        `You ignore the helpless UPA ship for now. But they'll be back.`,
+        `You turn your attention away from the temporarily disabled UPA ship.`,
+        `You move on from the stunned UPA ship.`,
+        `You fly passed the knocked out UPA ship.`
+      ],
+      startedCloak : [
+        `You've activated cloak.`
       ]
     };
     this.messages = [];
 
-    this.player = new Player(playerInitialPosition, playerInitialFuel, playerMoveRadius);
+    this.player = new Player(playerInitialPosition, playerMoveRadius, playerInitialFuel, playerInitialMissiles, playerInitialCloaks);
     this.enemies = [];
     for (let i = 0; i < enemyInitialPositions.length; i++) {
       this.enemies.push(new Enemy(enemyInitialPositions[i], enemyMoveRadius[i]));
@@ -267,9 +340,8 @@ class Game {
     }
 
     this.appendMessage(this.messageList.start);
+    this.processGameState();
     this.draw();
-    this.drawMessage();
-    //generateButtons(['Option 1', 'Option 2', 'Option 3'], 20); // testing
   }
 
   appendMessage(messageArray) {
@@ -283,6 +355,15 @@ class Game {
       messageCtx.fillText(`Fuel: ${Math.round(this.player.fuel / 10)}`, messageCanvas.width * 0.03, messageCanvas.height * 0.05);
     } else {
       messageCtx.fillText(`Fuel: ${Math.round(this.player.fuel / 10)} - ${Math.round(this.player.proposedFuelCost / 10)}`, messageCanvas.width * 0.03, messageCanvas.height * 0.05);
+    }
+    if (this.player.missiles > 0) {
+      messageCtx.fillText(`Missiles: ${Math.round(this.player.missiles)}`, messageCanvas.width * 0.03 + 120, messageCanvas.height * 0.05);
+    }
+    if (this.player.cloaks > 0) {
+      messageCtx.fillStyle = 'white';
+      messageCtx.fillRect(messageCanvas.width * 0.03 + 2 * 120 - 10, messageCanvas.height * 0.05 + 5, 90, -25);
+      messageCtx.fillStyle = 'black';
+      messageCtx.fillText(`Cloaks: ${Math.round(this.player.cloaks)}`, messageCanvas.width * 0.03 + 2 * 120, messageCanvas.height * 0.05);
     }
   }
 
@@ -316,13 +397,19 @@ class Game {
   drawPlayerAndEnemies() {
     gameCtx.beginPath();
     gameCtx.arc(this.nodes[this.player.position][0], this.nodes[this.player.position][1], this.nodeRadius, 0, Math.PI * 2);
-    gameCtx.fillStyle = this.colorMap.player;
+    if (this.player.detectableByEnemies) {
+      gameCtx.fillStyle = this.colorMap.player;
+    } else {
+      gameCtx.fillStyle = this.colorMap.playerUndetectable;
+    }
     gameCtx.fill();
-    gameCtx.beginPath();
-    gameCtx.arc(this.nodes[this.player.position][0], this.nodes[this.player.position][1], Math.min(this.player.moveRadius, this.player.fuel), 0, Math.PI * 2);
-    gameCtx.lineWidth = 1;
-    gameCtx.strokeStyle = this.colorMap.playerMovementRadius;
-    gameCtx.stroke();
+    if (this.state[0] == 'move') {
+      gameCtx.beginPath();
+      gameCtx.arc(this.nodes[this.player.position][0], this.nodes[this.player.position][1], Math.min(this.player.moveRadius, this.player.fuel), 0, Math.PI * 2);
+      gameCtx.lineWidth = 1;
+      gameCtx.strokeStyle = this.colorMap.playerMovementRadius;
+      gameCtx.stroke();
+    }
     this.drawStatus();
     for (let i = 0; i < this.enemies.length; i++) {
       if (calculateDistance(this.nodes[this.enemies[i].position], this.nodes[this.player.position]) > this.player.radarRadius) { continue; }
@@ -352,29 +439,117 @@ class Game {
     this.drawNodes();
     this.drawPlayerAndEnemies();
     this.drawSafeNode();
+    this.drawMessage();
+    generateButtons(this.buttonOptions);
   }
 
-  isCollision() {
+  useCloak() {
+    if (this.player.cloaks > 0) {
+      this.player.detectableByEnemies = false;
+      this.player.cloakedDuration++;
+      this.player.cloaks--;
+      this.draw();
+    }
+  }
+
+  missileOutcome() {
+    let rng = Math.random();
+    if (rng < 0.8) {
+      rng = Math.random();
+      if (rng < 0.5) {
+        return "destroyed";
+      } else {
+        return "stunned";
+      }
+    } else {
+      return "missed";
+    }
+  }
+
+  findCollidedEnemies() {
+    const collidedEnemiesIndices = [];
     for (let i = 0; i < this.enemies.length; i++) {
       if (this.enemies[i].position == this.player.position) {
-        return true;
+        collidedEnemiesIndices.push(i)
       }
     }
-    return false;
+    return collidedEnemiesIndices;
+  }
+
+  collision() {
+    if (this.buttonOptionClicked != 'Next turn') { this.turn++; }
+    const collidedEnemiesIndices = this.state[1];
+    this.buttonOptions = [];
+    if ((this.buttonOptionClicked == "Missile") && (this.player.missiles > 0)) {
+      this.player.missiles--;
+      let outcome = this.missileOutcome();
+      if ((outcome == "destroyed") || ((this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration > 0) && (outcome == "stunned"))) {
+        this.enemies.splice(collidedEnemiesIndices.pop(), 1);
+        this.state[1] = collidedEnemiesIndices;
+        this.appendMessage(this.messageList.destroyedEnemy);
+      } else if (outcome == "stunned") {
+        this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration++;
+        this.appendMessage(this.messageList.stunnedEnemy);
+      } else if (outcome == "missed") {
+        this.appendMessage(this.messageList.missedEnemy);
+      }
+    } else if ((this.buttonOptionClicked == "Cloak") && (this.player.cloaks > 0)) {
+      this.useCloak();
+      this.appendMessage(this.messageList.startedCloak);
+      this.state = ["move", "afterCollisionCloaked"];
+      this.processGameState();
+      this.draw();
+      return null;
+    } else if (this.buttonOptionClicked == "Move on") {
+      collidedEnemiesIndices.pop();
+      this.appendMessage(this.messageList.ignoreStunnedEnemy);
+    }
+
+    if (this.player.missiles > 0) { this.buttonOptions.push("Missile"); }
+    if (this.player.cloaks > 0) { this.buttonOptions.push("Cloak"); }
+
+    if ((collidedEnemiesIndices.length > 0) && (this.player.missiles == 0) && (this.player.cloaks == 0)) {
+      this.state = ["lose", "collision"];
+      this.processGameState();
+      this.draw();
+      return null;
+    }
+
+    if ((collidedEnemiesIndices.length > 1) && (this.buttonOptionClicked == 'Next turn')) {
+      this.appendMessage(this.messageList.multipleShipsCollision(collidedEnemiesIndices.length));
+    }
+    if ((collidedEnemiesIndices.length > 0) && (this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration == 0)) {
+      this.appendMessage(this.messageList.singleShipCollision);
+    } else {
+      this.buttonOptions.push("Move on")
+    }
+
+    if (collidedEnemiesIndices.length == 0) {
+      this.state = ['move', 'afterCollision'];
+      this.processGameState();
+      this.draw();
+    }
   }
 
   isSafeNode() {
     return (this.player.position == this.safeNode);
   }
 
-  checkGameStatus() {
-    if (this.isCollision()) {
-      this.appendMessage(this.messageList.loseCollision);
-      alert(`Game Over! They've got you.`);
-    } else if (this.isSafeNode()) {
+  // this function should be used immediately after a state change
+  processGameState() {
+    if (this.state[0] == "lose") {
+      this.buttonOptions = [];
+      if (this.state[1] == "collision")
+        this.appendMessage(this.messageList.loseCollision);
+    } else if (this.state[0] == "win") {
       this.player.detectableByEnemies = false;
-      this.appendMessage(this.messageList.win);
-      alert(`You win! You're safe now.`);
+      this.buttonOptions = [];
+      if (this.state[1] == "sanctuary")
+        this.appendMessage(this.messageList.winSanctuary);
+    } else if (this.state[0] == "move") {
+      this.buttonOptions = ['Next turn'];
+    } else if (this.state[0] == "collision") {
+      this.collision();
     }
   }
 
@@ -394,15 +569,25 @@ class Game {
   nextTurn() {
     this.turn++;
     this.player.move();
+    if (this.player.cloakedDuration > 0) {
+      this.player.cloakedDuration--;
+    } else if ((this.player.cloakedDuration == 0) && (!this.player.detectableByEnemies)) {
+      this.player.detectableByEnemies = true;
+    }
     if (!this.visitedNodes.includes(this.player.position)) { this.visitedNodes.push(this.player.position); }
+    if (this.isSafeNode()) { this.state = ["win", "sanctuary"]; }
+
+    // checking for collision
     for (let i = 0; i < this.enemies.length; i++) {
       this.enemies[i].move();
       this.enemies[i].decideTargetPosition(this.nodes, this.player, this.safeNode, this);
       this.enemies[i].decideNextPosition(this.nodes, this.player, this.safeNode);
     }
+    const collidedEnemiesIndices = this.findCollidedEnemies();
+    if ((collidedEnemiesIndices.length > 0) && (this.player.detectableByEnemies)) { this.state = ['collision', collidedEnemiesIndices]; }
+
+    this.processGameState();
     this.draw();
-    this.checkGameStatus();
-    this.drawMessage();
   }
 }
 
@@ -411,9 +596,11 @@ let game = new Game(
   nodeRadius = 5,
   playerMoveRadius = 80,
   playerInitialFuel = 2000,
-  playerInitialPosition = Math.floor(Math.random() * 150),
+  playerInitialMissiles = 2,
+  playerInitialCloaks = 1,
+  playerInitialPosition = 0,
   enemyMoveRadius = [80, 80],
-  enemyInitialPositions = Array.from({ length: 2 }, () => Math.floor(Math.random() * 150))
+  enemyInitialPositions = Array.from({ length: 2 }, () => 1 + Math.floor(Math.random() * (150 - 1)))
 );
 
 document.getElementById("new-game").addEventListener("click", function () {
@@ -423,14 +610,17 @@ document.getElementById("new-game").addEventListener("click", function () {
     nodeRadius = 5,
     playerMoveRadius = 80,
     playerInitialFuel = 2000,
-    playerInitialPosition = Math.floor(Math.random() * 150),
+    playerInitialMissiles = 2,
+    playerInitialCloaks = 1,
+    playerInitialPosition = 0,
     enemyMoveRadius = Array.from({ length: numEnemies }, () => 80),
-    enemyInitialPositions = Array.from({ length: numEnemies }, () => Math.floor(Math.random() * 150))
+    enemyInitialPositions = Array.from({ length: numEnemies }, () => 1 + Math.floor(Math.random() * (150 - 1)))
   );
 });
 
 // listen for click events to move the player
 gameCanvas.addEventListener('click', (e) => {
+  if (game.state[0] != 'move') { return null; }
   let mouseX = e.offsetX;
   let mouseY = e.offsetY;
   let positionClicked = game.findNodeByPosition(mouseX, mouseY);
@@ -449,12 +639,23 @@ gameCanvas.addEventListener('click', (e) => {
     }
 });
 
-// listen for click events for message canvas buttons
 messageCanvas.addEventListener('click', (event) => {
-  checkMessageButtonClick(event);
-  // TO-DO: logic for processing button click result
-});
-
-document.getElementById("next-turn").addEventListener("click", function () {
-  game.nextTurn();
+  const result = checkMessageButtonClick(event);
+  if (game.state[0] == 'move' && result == 'useCloak') {
+    game.buttonOptionClicked = 'useCloak';
+    game.useCloak();
+  } else if (result != null) {
+    game.buttonOptionClicked = game.buttonOptions[result];
+  } else {
+    return null;
+  }
+  if (game.buttonOptionClicked == 'Next turn') {
+    game.nextTurn();
+  } else if (game.state[0] == 'collision' && result == 'useCloak') {
+    game.buttonOptionClicked = 'Cloak';
+    game.processGameState();
+  }
+  else if (['Missile', 'Cloak', 'Move on'].includes(game.buttonOptionClicked)) {
+    game.processGameState();
+  }
 });
