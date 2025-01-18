@@ -16,7 +16,6 @@ function findNearbyNodes(nodes, node, radius, exclude) {
 }
 
 function generateText(context, messages, turn, x, y, maxWidth, lineHeight) {
-  messageCtx.fillStyle = "white";
   messageCtx.font = "14px Arial";
   messageCtx.textAlign = 'left';
   messageCtx.textBaseline = 'bottom';
@@ -24,6 +23,7 @@ function generateText(context, messages, turn, x, y, maxWidth, lineHeight) {
   const maxLines = Math.floor(maxHeight / lineHeight) - 1;
   let lineCount = 3; // leaving room for buttons
   for (let i = messages.length - 1; i >= 0; i--) {
+    messageCtx.fillStyle = messages[i][2];
     const text = '> ' + messages[i][1]
     const words = text.split(' ');
     let line = '';
@@ -175,9 +175,7 @@ class Enemy {
   }
 
   decideTargetPosition(nodes, player, safeNode, game) {
-    const targetPositionWasNull = this.targetPosition == null;
     if ((player.detectableByEnemies) && (player.position != safeNode) && (calculateDistance(nodes[this.position], nodes[player.position]) <= this.detectionRadius)) {
-      if (targetPositionWasNull) { game.appendMessage(game.messageList.detectedByEnemy); }
       this.targetPosition = nodes[player.position];
       this.lastDetectedPlayerTurn = game.turn;
     }
@@ -256,7 +254,10 @@ class Game {
       enemyActive : 'OrangeRed',
       safe : 'DeepSkyBlue',
       nodeVisited : 'White',
-      nodeUnvisited : 'Gray'
+      nodeUnvisited : 'Gray',
+      neutralMessage : 'White',
+      goodMessage : 'PaleGreen',
+      badMessage : 'Salmon'
     }
 
     this.turn = 0;
@@ -273,62 +274,77 @@ class Game {
     this.safeNodeVisible = true;
 
     this.messageList = {
-      start : [`You've heard whispers about a sanctuary hidden from the UPA. You have nothing left to lose but your own life now.`],
-      winSanctuary : [`You've reached what appears to be the fabled sanctuary. The UPA ships pursuing you gradually disperse as they seem unable to detect you. The dissidents welcome you into their hidden corner of the galaxy. "The hope for a better future is not lost," they say. "A day will come when the UPA ends and a brighter chapter begins."`],
-      loseCollision : [
+      start : [[`You've heard whispers about a sanctuary hidden from the UPA. You have nothing left to lose but your own life now.`], this.colorMap.neutralMessage],
+      winSanctuary : [[`You've reached what appears to be the fabled sanctuary. The UPA ships pursuing you gradually disperse as they seem unable to detect you. The dissidents welcome you into their hidden corner of the galaxy. "The hope for a better future is not lost," they say. "A day will come when the UPA ends and a brighter chapter begins."`], this.colorMap.safe],
+      loseCollision : [[
         `You tried your best, but the UPA corvette has tethered your ship. Only imprisonment or execution awaits you, and you're not sure which is worse.`,
         `Your ship has been struck. The interstellar engine is malfunctioning. "I tried my best," you say in your last moments. "I tried my—"`,
         `You see the missile from the cockpit of your ship growing larger and larger. Until, nothing.`
-      ],
-      detectedByEnemy : [
+      ], this.colorMap.badMessage],
+      detectedByEnemy : [[
         `You've been detected by a UPA ship!`,
         `A UPA ship has found you!`,
         `Your position has been discovered by a UPA ship!`,
         `A UPA ship is inbound!`,
         `A UPA ship has set course for your position!`,
         `It looks like a UPA ship has noticed you!`
-      ],
-      singleShipCollision : [
+      ], this.colorMap.neutralMessage],
+      detectedByEnemies : [[
+        `You've been detected by UPA ships!`,
+        `UPA ships have found you!`,
+        `Your position has been discovered by UPA ships!`,
+        `Multiple UPA ships inbound!`,
+        `UPA ships have set course for your position!`,
+        `It looks like UPA ships have noticed you!`
+      ], this.colorMap.neutralMessage],
+      singleShipCollision : [[
         `A UPA ship is about to enter missile range!`,
         `A UPA ship is closing in fast!`,
         `A UPA ship is on your tail!`,
         `A UPA ship has locked onto you!`
-      ],
+      ], this.colorMap.badMessage],
       multipleShipsCollision(n) {
-        return [
+        return [[
           `There are ${n} UPA ships in your vicinity.`,
           `There are ${n} UPA ships surrounding you.`,
           `There are ${n} UPA ships on top of you.`,
           `There are ${n} UPA ships approaching you.`
-        ]
+        ], this.colorMap.badMessage]
       },
-      destroyedEnemy : [
+      destroyedEnemy : [[
         `The UPA ship explodes into harmless shrapnel.`,
         `The UPA ship splits in half.`,
         `The UPA ship becomes yet another space junk.`,
         `The UPA ship loses all signs of life.`
-      ],
-      stunnedEnemy : [
+      ], this.colorMap.goodMessage],
+      stunnedEnemy : [[
         `The UPA ship is disabled for now.`,
         `The UPA ship has gone cold for now.`,
         `The UPA ship drifts harmlessly for now.`,
         `The UPA ship is stunned for now.`
-      ],
-      missedEnemy : [
+      ], this.colorMap.goodMessage],
+      missedEnemy : [[
         `Your missile missed!`,
         `The UPA ship evaded your missile!`,
         `Your missile was intercepted!`,
         `Your missile uselessly struck a piece of space junk!`
-      ],
-      ignoreStunnedEnemy : [
+      ], this.colorMap.badMessage],
+      ignoreStunnedEnemy : [[
         `You ignore the helpless UPA ship for now. But they'll be back.`,
         `You turn your attention away from the temporarily disabled UPA ship.`,
         `You move on from the stunned UPA ship.`,
         `You fly passed the knocked out UPA ship.`
-      ],
-      startedCloak : [
-        `You've activated cloak.`
-      ]
+      ], this.colorMap.neutralMessage],
+      startedCloak : [[
+        `You've activated cloak.`,
+        `You're temporarily invisible.`
+      ], this.colorMap.goodMessage],
+      cloakFailed : [[
+        `Cloak was ineffective! They saw you just as you activated cloak.`,
+        `Cloak was defective!`,
+        `Cloak malfunctioned!`,
+        `Cloaking device was unresponsive!`
+      ], this.colorMap.badMessage]
     };
     this.messages = [];
 
@@ -345,7 +361,7 @@ class Game {
   }
 
   appendMessage(messageArray) {
-    this.messages.push([this.turn, messageArray[Math.floor(Math.random() * messageArray.length)]]);
+    this.messages.push([this.turn, messageArray[0][Math.floor(Math.random() * messageArray[0].length)], messageArray[1]]);
   }
 
   drawStatus() {
@@ -361,7 +377,7 @@ class Game {
     }
     if (this.player.cloaks > 0) {
       messageCtx.fillStyle = 'white';
-      messageCtx.fillRect(messageCanvas.width * 0.03 + 2 * 120 - 10, messageCanvas.height * 0.05 + 5, 90, -25);
+      messageCtx.fillRect(messageCanvas.width * 0.03 + 2 * 120 - 10, messageCanvas.height * 0.05 + 3, 90, -23);
       messageCtx.fillStyle = 'black';
       messageCtx.fillText(`Cloaks: ${Math.round(this.player.cloaks)}`, messageCanvas.width * 0.03 + 2 * 120, messageCanvas.height * 0.05);
     }
@@ -494,12 +510,18 @@ class Game {
         this.appendMessage(this.messageList.missedEnemy);
       }
     } else if ((this.buttonOptionClicked == "Cloak") && (this.player.cloaks > 0)) {
-      this.useCloak();
-      this.appendMessage(this.messageList.startedCloak);
-      this.state = ["move", "afterCollisionCloaked"];
-      this.processGameState();
-      this.draw();
-      return null;
+      if (Math.random() > 0.5) {
+        this.useCloak();
+        this.appendMessage(this.messageList.startedCloak);
+        this.state = ["move", "afterCollisionCloaked"];
+        this.processGameState();
+        this.draw();
+        return null;
+      }
+      else {
+        this.player.cloaks--;
+        this.appendMessage(this.messageList.cloakFailed);
+      }
     } else if (this.buttonOptionClicked == "Move on") {
       collidedEnemiesIndices.pop();
       this.appendMessage(this.messageList.ignoreStunnedEnemy);
@@ -508,7 +530,7 @@ class Game {
     if (this.player.missiles > 0) { this.buttonOptions.push("Missile"); }
     if (this.player.cloaks > 0) { this.buttonOptions.push("Cloak"); }
 
-    if ((collidedEnemiesIndices.length > 0) && (this.player.missiles == 0) && (this.player.cloaks == 0)) {
+    if ((collidedEnemiesIndices.length > 0) && (this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration == 0) && (this.player.missiles == 0) && (this.player.cloaks == 0)) {
       this.state = ["lose", "collision"];
       this.processGameState();
       this.draw();
@@ -527,8 +549,9 @@ class Game {
     if (collidedEnemiesIndices.length == 0) {
       this.state = ['move', 'afterCollision'];
       this.processGameState();
-      this.draw();
     }
+
+    this.draw();
   }
 
   isSafeNode() {
@@ -577,12 +600,22 @@ class Game {
     if (!this.visitedNodes.includes(this.player.position)) { this.visitedNodes.push(this.player.position); }
     if (this.isSafeNode()) { this.state = ["win", "sanctuary"]; }
 
-    // checking for collision
+    // enemy movement
+    const numPursuingEnemiesBefore = this.enemies.filter(enemy => enemy.targetPosition != null).length;
     for (let i = 0; i < this.enemies.length; i++) {
       this.enemies[i].move();
       this.enemies[i].decideTargetPosition(this.nodes, this.player, this.safeNode, this);
       this.enemies[i].decideNextPosition(this.nodes, this.player, this.safeNode);
     }
+    const numPursuingEnemiesAfter = this.enemies.filter(enemy => enemy.targetPosition != null).length;
+
+    if (numPursuingEnemiesAfter > numPursuingEnemiesBefore + 1) {
+      this.appendMessage(this.messageList.detectedByEnemies);
+    } else if (numPursuingEnemiesAfter == numPursuingEnemiesBefore + 1) {
+      this.appendMessage(this.messageList.detectedByEnemy);
+    }
+
+    // checking for collision
     const collidedEnemiesIndices = this.findCollidedEnemies();
     if ((collidedEnemiesIndices.length > 0) && (this.player.detectableByEnemies)) { this.state = ['collision', collidedEnemiesIndices]; }
 
@@ -643,6 +676,7 @@ messageCanvas.addEventListener('click', (event) => {
   const result = checkMessageButtonClick(event);
   if (game.state[0] == 'move' && result == 'useCloak') {
     game.buttonOptionClicked = 'useCloak';
+    game.appendMessage(game.messageList.startedCloak);
     game.useCloak();
   } else if (result != null) {
     game.buttonOptionClicked = game.buttonOptions[result];
