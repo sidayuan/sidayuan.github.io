@@ -10,13 +10,12 @@
 <body>
   Enemies:
   &nbsp;
-  <input type="number" id="num-enemies" value="2" min="1" max="20" oninput="this.value = Math.floor(Math.max(Math.abs(this.value), 1))" style="width: 40px;">
+  <input type="number" id="num-enemies" value="4" min="1" max="20" oninput="this.value = Math.floor(Math.max(Math.abs(this.value), 1))" style="width: 40px;">
   <button id="new-game">New game</button>
   <div id="game">
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     <canvas id="messageCanvas" width="400" height="600"></canvas>
   </div>
-  <button id="next-turn">Next turn</button>
   <script src="game.js"></script>
 </body>
 </html>
