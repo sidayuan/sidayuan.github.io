@@ -10,9 +10,18 @@ function calculateDistance(a, b) { return Math.sqrt(Math.pow(a[0] - b[0], 2) + M
 function findNearbyNodes(nodes, node, radius, exclude) {
   const nearbyNodes = [];
   for (let i = 0; i < nodes.length; i++) {
-    if ((calculateDistance(nodes[node], nodes[i]) <= radius) && !(exclude.includes(i))) { nearbyNodes.push(i); }
+    if ((calculateDistance(nodes[node].position, nodes[i].position) <= radius) && !(exclude.includes(i))) { nearbyNodes.push(i); }
   }
   return nearbyNodes;
+}
+
+function generateRandomName() {
+  // two random uppercase letters
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const randomLetters = Array.from({ length: 2 }, () => letters.charAt(Math.floor(Math.random() * letters.length))).join('');
+  // three random digits
+  const randomDigits = Math.floor(Math.random() * 1000).toString().padStart(3, '0'); // Ensures 3 digits
+  return `${randomLetters}-${randomDigits}`;
 }
 
 function generateText(context, messages, turn, x, y, maxWidth, lineHeight) {
@@ -104,21 +113,33 @@ function checkMessageButtonClick(event) {
       return i;
     }
   }
-  const cloakXLower = messageCanvas.width * 0.03 + 2 * 120 - 10;
-  const cloakYLower = messageCanvas.height * 0.05 + 5;
-  const cloakWidth = 90;
-  const cloakHeight = -25;
-  if (mouseX >= cloakXLower && mouseX <= cloakXLower + cloakWidth && mouseY >= cloakYLower + cloakHeight && mouseY <= cloakYLower) {
-    return 'useCloak';
+  if (game.enableMissileButton) {
+    const missileXLower = messageCanvas.width * 0.03 + 100 - 7;
+    const missileYLower = messageCanvas.height * 0.05 + 5;
+    const missileWidth = 90;
+    const missileHeight = -25;
+    if (mouseX >= missileXLower && mouseX <= missileXLower + missileWidth && mouseY >= missileYLower + missileHeight && mouseY <= missileYLower) {
+      return 'useMissile';
+    }
+  }
+  if (game.player.cloaks > 0) {
+    const cloakXLower = messageCanvas.width * 0.03 + 2 * 100 - 7;
+    const cloakYLower = messageCanvas.height * 0.05 + 5;
+    const cloakWidth = 90;
+    const cloakHeight = -25;
+    if (mouseX >= cloakXLower && mouseX <= cloakXLower + cloakWidth && mouseY >= cloakYLower + cloakHeight && mouseY <= cloakYLower) {
+      return 'useCloak';
+    }
   }
 }
 
 class Player {
-  constructor(initialPosition, moveRadius, initialFuel, initialMissiles, initialCloaks) {
-    this.position = initialPosition;
+  constructor(moveRadius, initialFuel, initialMissiles, initialCloaks, initialMoney) {
+    this.position = 0;
     this.fuel = initialFuel;
     this.missiles = initialMissiles;
     this.cloaks = initialCloaks;
+    this.money = initialMoney;
     this.moveRadius = moveRadius;
     this.nextPosition = null;
     this.proposedFuelCost = null;
@@ -132,7 +153,7 @@ class Player {
       this.nextPosition = null;
       return null;
     }
-    const proposedDistance = calculateDistance(nodes[this.position], nodes[nextPosition]);
+    const proposedDistance = calculateDistance(nodes[this.position].position, nodes[nextPosition].position);
     if ((proposedDistance <= this.moveRadius) && (proposedDistance <= this.fuel)) {
       this.proposedFuelCost = proposedDistance;
       this.nextPosition = nextPosition;
@@ -153,11 +174,24 @@ class Player {
 }
 
 class Node {
-  constructor(position, type, visitMessage) {
+  constructor(position, type, specialty, nodeName, visitMessage, visible) {
     this.position = position;
     this.type = type;
+    this.specialty = specialty;
+    this.name = nodeName;
     this.visitMessage = visitMessage;
+    this.visible = visible;
     this.visited = false;
+  }
+}
+
+class quest {
+  constructor(fixer, questType, destination, reward) {
+    this.fixer = fixer;
+    this.questType = questType;
+    this.destination = destination;
+    this.reward = reward;
+    this.completed = false;
   }
 }
 
@@ -174,31 +208,31 @@ class Enemy {
     this.lastDetectedPlayerTurn = null;
   }
 
-  decideTargetPosition(nodes, player, safeNode, game) {
-    if ((player.detectableByEnemies) && (player.position != safeNode) && (calculateDistance(nodes[this.position], nodes[player.position]) <= this.detectionRadius)) {
-      this.targetPosition = nodes[player.position];
+  decideTargetPosition(nodes, player, sanctuary, game) {
+    if ((player.detectableByEnemies) && (player.position != sanctuary) && (calculateDistance(nodes[this.position].position, nodes[player.position].position) <= this.detectionRadius)) {
+      this.targetPosition = player.position;
       this.lastDetectedPlayerTurn = game.turn;
     }
-    if ((this.position == this.targetPosition) || (game.turn - this.lastDetectedPlayerTurn > this.abandonThreshold) || (player.position == safeNode)) { // randomly grazes if it reaches target position
+    if ((this.position == this.targetPosition) || (game.turn - this.lastDetectedPlayerTurn > this.abandonThreshold) || (player.position == sanctuary)) { // randomly grazes if it reaches target position
       this.targetPosition = null;
     }
   }
 
-  decideNextPosition(nodes, player, safeNode) {
-    const nearbyNodes = findNearbyNodes(nodes, this.position, this.moveRadius, [safeNode]);
+  decideNextPosition(nodes, player, sanctuary) {
+    const nearbyNodes = findNearbyNodes(nodes, this.position, this.moveRadius, [sanctuary]);
     if (this.targetPosition != null) {
-      const nearbyNodesPlayer = findNearbyNodes(nodes, player.position, player.moveRadius, [safeNode]);
+      const nearbyNodesPlayer = findNearbyNodes(nodes, player.position, player.moveRadius, [sanctuary]);
       const intersectionNodes = nearbyNodes.filter(value => nearbyNodesPlayer.includes(value));
       if ((player.detectableByEnemies) && (intersectionNodes.length > 0)) { // if it can detect player AND reach the player's vicinity, it randomly picks such a node
         this.nextPosition = intersectionNodes[Math.floor(Math.random() * intersectionNodes.length)];
       } else { // if enemy is still far from the player OR it can't detect the player, it chooses the approximate best path towards the target node
         // the following chase logic can be generalised using recursion
         const nearbyNodeSet = {}
-        const paths = [];
+        const paths = [[this.position, this.position, this.position]];
         for (let i = 0; i < nearbyNodes.length; i++) {
-          nearbyNodeSet[[i]] = findNearbyNodes(nodes, nearbyNodes[i], this.moveRadius, [safeNode]);
+          nearbyNodeSet[[i]] = findNearbyNodes(nodes, nearbyNodes[i], this.moveRadius, [sanctuary]);
           for (let j = 0; j < nearbyNodeSet[[i]].length; j++) {
-            nearbyNodeSet[[i, j]] = findNearbyNodes(nodes, nearbyNodeSet[[i]][j], this.moveRadius, [safeNode]);
+            nearbyNodeSet[[i, j]] = findNearbyNodes(nodes, nearbyNodeSet[[i]][j], this.moveRadius, [sanctuary]);
               for (let k = 0; k < nearbyNodeSet[[i, j]].length; k++) {
                 if ((nearbyNodeSet[[i, j]][k] != nearbyNodeSet[[i]][j]) && (nearbyNodeSet[[i, j]][k] != nearbyNodes[i]) && (nearbyNodeSet[[i, j]][k] != this.position)) {
                   paths.push([nearbyNodes[i], nearbyNodeSet[[i]][j], nearbyNodeSet[[i, j]][k]]);
@@ -210,7 +244,7 @@ class Enemy {
         let closestIndex = 0;
         let closestDist = Infinity;
         for (let i = 0; i < paths.length; i++) {
-          let newDist = calculateDistance(nodes[player.position], nodes[paths[i][2]]);
+          let newDist = calculateDistance(nodes[player.position].position, nodes[paths[i][2]].position);
           if (newDist < closestDist) {
             closestDist = newDist;
             closestIndex = i;
@@ -242,9 +276,9 @@ class Game {
     playerInitialFuel,
     playerInitialMissiles,
     playerInitialCloaks,
-    playerInitialPosition,
+    playerInitialMoney,
     enemyMoveRadius,
-    enemyInitialPositions
+    numInitialEnemies
   ) {
     this.colorMap = {
       player : 'Lime',
@@ -255,131 +289,254 @@ class Game {
       safe : 'DeepSkyBlue',
       nodeVisited : 'White',
       nodeUnvisited : 'Gray',
+      specialtyNodeVisited : 'Yellow',
+      specialtyNodeUnvisited : 'Gold',
+      capitalVisited : 'Fuchsia',
+      capitalUnvisited : 'Orchid',
       neutralMessage : 'White',
       goodMessage : 'PaleGreen',
-      badMessage : 'Salmon'
+      badMessage : 'Salmon',
+      questMarker : `Cyan`
     }
 
     this.turn = 0;
     this.state = ['move', null]; // a pair, where the first is state and second is reason
     this.buttonOptions = ['Next turn'];
     this.buttonOptionClicked = null; // tracking the last button clicked
+    this.enableMissileButton = false;
     this.numNodes = numNodes;
     this.nodeRadius = nodeRadius;
     this.nodes = [];
-    this.visitedNodes = [playerInitialPosition];
-    this.generateNodes();
-
-    this.safeNode = Math.floor(Math.random() * this.numNodes);
-    this.safeNodeVisible = true;
+    this.sanctuary = null;
+    this.buySanctuaryInfoPrice = 100;
+    this.quests = [];
+    this.messages = [];
 
     this.messageList = {
-      start : [[`You've heard whispers about a sanctuary hidden from the UPA. You have nothing left to lose but your own life now.`], this.colorMap.neutralMessage],
-      winSanctuary : [[`You've reached what appears to be the fabled sanctuary. The UPA ships pursuing you gradually disperse as they seem unable to detect you. The dissidents welcome you into their hidden corner of the galaxy. "The hope for a better future is not lost," they say. "A day will come when the UPA ends and a brighter chapter begins."`], this.colorMap.safe],
-      loseCollision : [[
+      start : [`You've heard whispers about a sanctuary hidden from the UPA. You have nothing left to lose but your own life now.`],
+      winSanctuary : [`You've reached what appears to be the fabled sanctuary. The UPA ships pursuing you gradually disperse as they seem unable to detect you. The dissidents welcome you into their hidden corner of the galaxy. "The hope for a better future is not lost," they say. "A day will come when the UPA ends and a brighter chapter begins."`],
+      loseCollision : [
         `You tried your best, but the UPA corvette has tethered your ship. Only imprisonment or execution awaits you, and you're not sure which is worse.`,
         `Your ship has been struck. The interstellar engine is malfunctioning. "I tried my best," you say in your last moments. "I tried my—"`,
         `You see the missile from the cockpit of your ship growing larger and larger. Until, nothing.`
-      ], this.colorMap.badMessage],
-      detectedByEnemy : [[
+      ],
+      detectedByEnemy : [
         `You've been detected by a UPA ship!`,
         `A UPA ship has found you!`,
         `Your position has been discovered by a UPA ship!`,
         `A UPA ship is inbound!`,
         `A UPA ship has set course for your position!`,
         `It looks like a UPA ship has noticed you!`
-      ], this.colorMap.neutralMessage],
-      detectedByEnemies : [[
+      ],
+      detectedByEnemies : [
         `You've been detected by UPA ships!`,
         `UPA ships have found you!`,
         `Your position has been discovered by UPA ships!`,
         `Multiple UPA ships inbound!`,
         `UPA ships have set course for your position!`,
         `It looks like UPA ships have noticed you!`
-      ], this.colorMap.neutralMessage],
-      singleShipCollision : [[
+      ],
+      singleShipCollision : [
         `A UPA ship is about to enter missile range!`,
         `A UPA ship is closing in fast!`,
         `A UPA ship is on your tail!`,
         `A UPA ship has locked onto you!`
-      ], this.colorMap.badMessage],
+      ],
       multipleShipsCollision(n) {
-        return [[
+        return [
           `There are ${n} UPA ships in your vicinity.`,
           `There are ${n} UPA ships surrounding you.`,
           `There are ${n} UPA ships on top of you.`,
           `There are ${n} UPA ships approaching you.`
-        ], this.colorMap.badMessage]
+        ]
       },
-      destroyedEnemy : [[
+      destroyedEnemy : [
         `The UPA ship explodes into harmless shrapnel.`,
         `The UPA ship splits in half.`,
         `The UPA ship becomes yet another space junk.`,
         `The UPA ship loses all signs of life.`
-      ], this.colorMap.goodMessage],
-      stunnedEnemy : [[
+      ],
+      stunnedEnemy : [
         `The UPA ship is disabled for now.`,
         `The UPA ship has gone cold for now.`,
         `The UPA ship drifts harmlessly for now.`,
         `The UPA ship is stunned for now.`
-      ], this.colorMap.goodMessage],
-      missedEnemy : [[
+      ],
+      missedEnemy : [
         `Your missile missed!`,
         `The UPA ship evaded your missile!`,
         `Your missile was intercepted!`,
         `Your missile uselessly struck a piece of space junk!`
-      ], this.colorMap.badMessage],
-      ignoreStunnedEnemy : [[
+      ],
+      ignoreStunnedEnemy : [
         `You ignore the helpless UPA ship for now. But they'll be back.`,
         `You turn your attention away from the temporarily disabled UPA ship.`,
         `You move on from the stunned UPA ship.`,
         `You fly passed the knocked out UPA ship.`
-      ], this.colorMap.neutralMessage],
-      startedCloak : [[
+      ],
+      startedCloak : [
         `You've activated cloak.`,
         `You're temporarily invisible.`
-      ], this.colorMap.goodMessage],
-      cloakFailed : [[
+      ],
+      cloakFailed : [
         `Cloak was ineffective! They saw you just as you activated cloak.`,
         `Cloak was defective!`,
         `Cloak malfunctioned!`,
         `Cloaking device was unresponsive!`
-      ], this.colorMap.badMessage]
+      ],
+      enterDataBank : [
+        `You approach a UPA data bank. It processes every line of communication from every day over and over. Surely it's heard something useful?`,
+        `You come across a UPA data bank. It processes every byte of data from every second at the power consumption that a single star couldn't provide. Surely it's useful for something?`
+      ],
+      enterFixer : [
+        `You arrive at a space station that seems to be merely the extension of the dingy bar that's inside it. Inside the bar, the tables are sticky, the air is thick with poison, and someone is passed out—or dead—on the floor.`,
+        `You arrive at a bar that seems to be the only thing this space station houses. Eyes follow you dispassionately as you walk, but that's not why you feel watched. This isn't a place you want to stay long in.`,
+        `You enter the heart of the space station—a shitty bar with shittier drinks, none of which are served from branded bottles. You're not here for sordid pleasure, and the sooner you leave the better.`,
+        `You're greeted by the pungent smell of bootleg methanol as you enter the abysmal excuse of a bar. It's loud with conversation, comprised of a hundred whispered exchanges that you can't make out. A hundred ways things can go wrong.`
+      ],
+      enterArsenal : [
+        `You approach an arsenal world owned by some UPA defense company.`,
+        `You come across an arsenal world run by one of the big UPA defense companies.`
+      ],
+      enterHyperconductorFactory : [
+        `You approach a company world owned by some UPA defense company set up as a hyperconductor factory.`,
+        `You come across a production world run by some UPA defense company to produce hyperconductors.`
+      ],
+      enterRefinery : [
+        `You approach a refinery world owned by a large UPA energy conglomerate.`,
+        `You come across a company world owned by run by some UPA energy company to produce interstellar fuel.`
+      ],
+      enterShipyard : [
+        `You approach a shipyard owned by the largest UPA shipbuilding company.`,
+        `You come across a shipyard run by one of the big UPA shipbuilding companies.`
+      ],
+      enterCapital : [
+        `You enter the Capital world of the UPA. You think you've made a mistake.`,
+        `You approach the capital world of the UPA. Every fibre in your body is telling you to run.`
+      ],
+      enterJunction : [
+        `You approach the junction node. Nothing here but fellow travellers.`,
+        `You approach the junction node. This one's particularly run down.`,
+        `You reach the junction node. A lot of homeless people—probably dumped here by debt sharks.`,
+        `You reach the junction node. There's a dead body that everybody else is also ignoring.`,
+        `You reach the junction node. Near it is a graveyard of one of the larger battles.`
+      ],
+      enterCommonSystem : [
+        `You approach a quiet planetary system. There used to be people living here, but that was before the war.`,
+        `You approach a cold planetary system. You've seen junction nodes more liveable than this.`,
+        `You reach a small planetary system. The only thing that greets you is a transmission telling you to stay away on repeat.`,
+        `You reach a system with only gas giants. You'd rather be in the mines than here.`,
+        `You reach a planetary system with some traffic. You don't understand the language of the locals.`,
+        `You approach a planetary system that has decent traffic. It's a peaceful world—only because it bends over for the UPA.`,
+        `You approach a system that appears to have large craters on almost every planet. Footprints of the UPA.`,
+        `You reach a system colonised by the UPA.`,
+        `You reach a planetary system that orbits a black hole.`,
+        `You reach a system of a few rogue planets orbiting each other.`,
+        `You reach a system orbiting a neutron star`,
+        `You reach a small planetary system. You hear an unfamiliar religious prayer over the broadcast.`
+      ],
+      enterCommonStation : [
+        `You approach a small space station. It appears to be a mining operation.`,
+        `You approach an old space station. It looks like it's held together by tape and prayers.`,
+        `You reach a city-sized station. You see UPA military personnel, so you keep to yourself.`,
+        `You reach an oddly-shaped space station.`,
+        `You approach the station. It seems to harbour a lot of refugees and not a lot of sympathy.`,
+        `You approach a large station. A rebel was captured here not long ago.`,
+        `You reach a tiny station. You've seen junction nodes larger than this.`,
+        `You reach an abandoned space station. Only a couple ships aside from you are passing by.`,
+        `You approach a large space station. Half of the station is pristine while the other half looks barely liveable. Guess which one you can't afford.`,
+        `You approach a familiar space station. You remember reading about its capture a long time ago.`
+      ],
+      infoBrokerOffer : [
+        `You hear a digitised voice coming from your interface. "I know who you are, and I know what you want," it says. "I'll tell you where it is for $${this.buySanctuaryInfoPrice}."`,
+        `I KNOW WHERE YOU WANT TO GO. $${this.buySanctuaryInfoPrice}.`
+      ],
+      infoBrokerAfterOffer : [
+        `All you hear is static. The information broker has nothing more to say.`,
+        `...`
+      ],
+      rewardFixer(money) {
+        return [
+          `"Good job kid," the fixer says. "Here's the $${money} I promised."`,
+          `"Clean and simple," the fixer remarks with a grin. "I like that. Here's the $${money}."`,
+          `"Back already?" The fixer looks genuinely surprised. "Well done mate. Here's $${money}."`,
+          `"I guess a deal's a deal," the fixer nods. "Here's $${money}."`
+        ]
+      },
+      fixerAlreadyHasQuest : [
+        `The fixer looks annoyed. "Didn't I give you a job already? Get out of here."`,
+        `"It's a bad idea to come back empty-handed," the fixer says menacingly.`,
+        `The fixer looks disappointed. "Damn, you got me excited for nothing. Go do your job."`,
+        `"Are you slow?" the fixer asks impatiently. "'Cause I don't like to repeat myself."`
+      ],
+      smuggleQuest : [
+        `"I have a job for ya," the fixer says as he nods to a person sitting alone at the bar. "I need you to take them somewhere. No questions asked."`,
+        `"Mate, you're just the person I needed," the fixer says enthusiastically. "I need you to pick up some goods for me. And before you ask, yes. They're extremely illegal."`,
+        `"You need some cash?" the fixer asks rhetorically. "I need you to deliver something for me. And don't peek into it. Trust me kid, you're better off not knowing."`,
+        `"You look like someone who needs to be put to work," the fixer grinned. "I need you to pick someone up and bring them back here. They'll be expecting you, but don't talk to them. Understand?."`
+      ],
+      seekQuest : [
+        `"I have a job for you," the fixer says. "There's a bastard who owes me money. You need to hunt him down for me. Go get 'em tiger."`,
+        `"You're just the person I needed," the fixer says. "There's a missing cargo that should've arrived a month ago. Find it for me."`
+      ],
+      huntQuest(numTargets) {
+        return [
+          `"Hey kid, you don't like the UPA right?" the fixer asks. "I have a client who wants less UPA ships in the sky and is willing to pay to make it happen. Go shoot down ${numTargets} UPA ships."`
+        ]
+      },
+      newQuestMarkerAdded : ['New destination marked.'],
+      questCompleted : [
+        `You've done your job. It's time to collect your reward.`,
+        `Job completed. You hope the fixer lives up to their word.`
+      ]
     };
-    this.messages = [];
 
-    this.player = new Player(playerInitialPosition, playerMoveRadius, playerInitialFuel, playerInitialMissiles, playerInitialCloaks);
+    this.generateNodes();
+
+    this.player = new Player(playerMoveRadius, playerInitialFuel, playerInitialMissiles, playerInitialCloaks, playerInitialMoney);
+    this.nodes[this.player.position].visited = true;
     this.enemies = [];
-    for (let i = 0; i < enemyInitialPositions.length; i++) {
-      this.enemies.push(new Enemy(enemyInitialPositions[i], enemyMoveRadius[i]));
+    for (let i = 0; i < numInitialEnemies; i++) {
+      this.enemies.push(new Enemy(2 + Math.floor(Math.random() * (this.numNodes - 2)), enemyMoveRadius)); // subtracting player and sanctuary positions
       this.enemies[i].decideNextPosition(this.nodes, this.player);
     }
 
     this.appendMessage(this.messageList.start);
+    this.appendMessage([this.nodes[this.player.position].visitMessage]);
     this.processGameState();
     this.draw();
   }
 
-  appendMessage(messageArray) {
-    this.messages.push([this.turn, messageArray[0][Math.floor(Math.random() * messageArray[0].length)], messageArray[1]]);
+  appendMessage(messageArray, colour = this.colorMap.neutralMessage) {
+    this.messages.push([this.turn, messageArray[Math.floor(Math.random() * messageArray.length)], colour]);
   }
 
   drawStatus() {
     messageCtx.clearRect(0, 0, messageCanvas.width, 30);
+    messageCtx.fillStyle = 'white';
     messageCtx.font = "bold 14px Arial";
+    messageCtx.fillText(`$${this.player.money}`, messageCanvas.width * 0.03 + 3 * 100, messageCanvas.height * 0.05);
     if ((this.player.proposedFuelCost == null) || (Math.round(this.player.proposedFuelCost / 10 == 0))) {
       messageCtx.fillText(`Fuel: ${Math.round(this.player.fuel / 10)}`, messageCanvas.width * 0.03, messageCanvas.height * 0.05);
     } else {
       messageCtx.fillText(`Fuel: ${Math.round(this.player.fuel / 10)} - ${Math.round(this.player.proposedFuelCost / 10)}`, messageCanvas.width * 0.03, messageCanvas.height * 0.05);
     }
     if (this.player.missiles > 0) {
-      messageCtx.fillText(`Missiles: ${Math.round(this.player.missiles)}`, messageCanvas.width * 0.03 + 120, messageCanvas.height * 0.05);
+      if (this.enableMissileButton) {
+        messageCtx.fillStyle = 'white';
+        messageCtx.fillRect(messageCanvas.width * 0.03 + 100 - 7, messageCanvas.height * 0.05 + 3, 90, -23);
+        messageCtx.fillStyle = 'black';
+        messageCtx.fillText(`Missiles: ${Math.round(this.player.missiles)}`, messageCanvas.width * 0.03 + 100, messageCanvas.height * 0.05);
+      } else {
+        messageCtx.fillStyle = 'white';
+        messageCtx.fillText(`Missiles: ${Math.round(this.player.missiles)}`, messageCanvas.width * 0.03 + 100, messageCanvas.height * 0.05);
+      }
     }
     if (this.player.cloaks > 0) {
       messageCtx.fillStyle = 'white';
-      messageCtx.fillRect(messageCanvas.width * 0.03 + 2 * 120 - 10, messageCanvas.height * 0.05 + 3, 90, -23);
+      messageCtx.fillRect(messageCanvas.width * 0.03 + 2 * 100 - 7, messageCanvas.height * 0.05 + 3, 90, -23);
       messageCtx.fillStyle = 'black';
-      messageCtx.fillText(`Cloaks: ${Math.round(this.player.cloaks)}`, messageCanvas.width * 0.03 + 2 * 120, messageCanvas.height * 0.05);
+      messageCtx.fillText(`Cloaks: ${Math.round(this.player.cloaks)}`, messageCanvas.width * 0.03 + 2 * 100, messageCanvas.height * 0.05);
     }
   }
 
@@ -390,29 +547,165 @@ class Game {
   }
 
   generateNodes() {
-    for (let i = 0; i < this.numNodes; i++) {
-      const x = Math.random() * gameCanvas.width;
-      const y = Math.random() * gameCanvas.height;
-      this.nodes.push([x, y]);
+    this.nodes.push(new Node( // starting node
+      [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+      'junction',
+      null,
+      `Junction Node ${generateRandomName()}`,
+      this.messageList.enterJunction[Math.floor(Math.random() * this.messageList.enterJunction.length)],
+      true
+    ));
+    this.nodes.push(new Node( // sanctuary
+      [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+      'station',
+      'sanctuary',
+      `Sanctuary`,
+      null,
+      false
+    ));
+    this.sanctuary = this.nodes.length - 1;
+    this.nodes.push(new Node( // fixer
+      [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+      'station',
+      'fixer',
+      `The ${['Den', 'Lounge', 'Tavern', 'Alley', 'Saloon', 'Hotel', 'Club', 'Parlour', 'House', 'Fix'][Math.floor(Math.random() * 10)]} ${generateRandomName()}`,
+      this.messageList.enterFixer[Math.floor(Math.random() * this.messageList.enterFixer.length)],
+      true
+    ));
+    this.nodes.push(new Node( // information broker
+      [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+      ['system', 'station'][Math.floor(Math.random() * 2)],
+      'infoBroker',
+      `Data Bank ${generateRandomName()}`,
+      this.messageList.enterDataBank[Math.floor(Math.random() * this.messageList.enterDataBank.length)],
+      true
+    ));
+    this.nodes.push(new Node( // arms dealer
+      [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+      'system',
+      'armsDealer',
+      `Arsenal World ${generateRandomName()}`,
+      this.messageList.enterArsenal[Math.floor(Math.random() * this.messageList.enterArsenal.length)],
+      true
+    ));
+    this.nodes.push(new Node( // tech dealer
+      [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+      'system',
+      'techDealer',
+      `Hyperconductor Production World ${generateRandomName()}`,
+      this.messageList.enterHyperconductorFactory[Math.floor(Math.random() * this.messageList.enterHyperconductorFactory.length)],
+      true
+    ));
+    this.nodes.push(new Node( // refinery
+      [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+      'system',
+      'refinery',
+      `Refinery World ${generateRandomName()}`,
+      this.messageList.enterRefinery[Math.floor(Math.random() * this.messageList.enterRefinery.length)],
+      true
+    ));
+    this.nodes.push(new Node( // mechanic
+      [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+      'station',
+      'mechanic',
+      `Shipyard Station ${generateRandomName()}`,
+      this.messageList.enterShipyard[Math.floor(Math.random() * this.messageList.enterShipyard.length)],
+      true
+    ));
+    this.nodes.push(new Node( // capital
+      [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+      'system',
+      'capital',
+      `Centralis`,
+      this.messageList.enterCapital[Math.floor(Math.random() * this.messageList.enterCapital.length)],
+      true
+    ));
+
+    const nodesSet = this.nodes.length;
+    for (let i = nodesSet; i < this.numNodes; i++) {
+      let nodeType = ['system', 'station', 'junction'][Math.floor(Math.random() * 3)];
+      let nodeSpecialty = null;
+      let nodeName = null;
+      let visitMessage = null;
+      if (nodeType == 'system') {
+        if (Math.random() < 0.01) {
+          nodeSpecialty = ['armsDealer', 'techDealer', 'refinery'][Math.floor(Math.random() * 3)];
+          if (nodeSpecialty == 'armsDealer') {
+            nodeName = `Arsenal World ${generateRandomName()}`;
+            visitMessage = this.messageList.enterArsenal[Math.floor(Math.random() * this.messageList.enterArsenal.length)]
+          };
+          if (nodeSpecialty == 'techDealer') {
+            nodeName = `Hyperconductor Production World ${generateRandomName()}`;
+            visitMessage = this.messageList.enterHyperconductorFactory[Math.floor(Math.random() * this.messageList.enterHyperconductorFactory.length)]
+          }
+          if (nodeSpecialty == 'refinery') {
+            nodeName = `Refinery World ${generateRandomName()}`;
+            visitMessage = this.messageList.enterRefinery[Math.floor(Math.random() * this.messageList.enterRefinery.length)]
+          }
+        } else {
+          nodeName = `Planetary System ${generateRandomName()}`;
+          visitMessage = this.messageList.enterCommonSystem[Math.floor(Math.random() * this.messageList.enterCommonSystem.length)]
+        }
+      } else if (nodeType == 'station') {
+        if (Math.random() < 0.01) {
+          nodeSpecialty = ['fixer', 'mechanic'][Math.floor(Math.random() * 2)];
+          if (nodeSpecialty == 'fixer') {
+            nodeName = `The ${['Den', 'Lounge', 'Tavern', 'Alley', 'Saloon', 'Hotel', 'Club', 'Parlour', 'House', 'Fix'][Math.floor(Math.random() * 10)]} ${generateRandomName()}`;
+            visitMessage = this.messageList.enterFixer[Math.floor(Math.random() * this.messageList.enterFixer.length)]
+          } else if (nodeSpecialty == 'mechanic') {
+            nodeName = `Shipyard Station ${generateRandomName()}`;
+            visitMessage = this.messageList.enterShipyard[Math.floor(Math.random() * this.messageList.enterShipyard.length)]
+          }
+        } else {
+          nodeName = `Space Station ${generateRandomName()}`;
+          visitMessage = this.messageList.enterCommonStation[Math.floor(Math.random() * this.messageList.enterCommonStation.length)]
+        }
+      } else if (nodeType == 'junction') {
+        nodeName = `Junction Node ${generateRandomName()}`;
+        visitMessage = this.messageList.enterJunction[Math.floor(Math.random() * this.messageList.enterJunction.length)]
+      }
+      this.nodes.push(new Node(
+        [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+        nodeType,
+        nodeSpecialty,
+        nodeName,
+        visitMessage,
+        true
+      ));
     }
   }
 
   drawNodes() {
-    this.nodes.forEach((node, index) => {
+    this.nodes.filter((node) => node.visible).forEach((node) => {
       gameCtx.beginPath();
-      gameCtx.arc(node[0], node[1], this.nodeRadius, 0, Math.PI * 2);
-      if (this.visitedNodes.includes(index)) {
-        gameCtx.fillStyle = this.colorMap.nodeVisited;
+      gameCtx.arc(node.position[0], node.position[1], this.nodeRadius, 0, Math.PI * 2);
+      if (node.visited) {
+        if (node.specialty == 'capital') {
+          gameCtx.fillStyle = this.colorMap.capitalVisited;
+        } else if (node.specialty != null) {
+          gameCtx.fillStyle = this.colorMap.specialtyNodeVisited;
+        } else {
+          gameCtx.fillStyle = this.colorMap.nodeVisited;
+        }
       } else {
-        gameCtx.fillStyle = this.colorMap.nodeUnvisited;
+        if (node.specialty == 'capital' && calculateDistance(node.position, this.nodes[this.player.position].position) <= this.player.moveRadius) {
+          gameCtx.fillStyle = this.colorMap.capitalUnvisited;
+        } else if (node.specialty != null && calculateDistance(node.position, this.nodes[this.player.position].position) <= this.player.moveRadius) {
+          gameCtx.fillStyle = this.colorMap.specialtyNodeUnvisited;
+        } else {
+          gameCtx.fillStyle = this.colorMap.nodeUnvisited;
+        }
       }
+      let relevantQuests = this.quests.filter((quest) => (quest.questType != 'hunt' && !quest.completed && this.nodes[quest.destination].position == node.position));
+      if (relevantQuests.length > 0) { gameCtx.fillStyle = this.colorMap.questMarker; }
+      if (node.specialty == 'sanctuary') { gameCtx.fillStyle = this.colorMap.safe; }
       gameCtx.fill();
     });
   }
 
   drawPlayerAndEnemies() {
     gameCtx.beginPath();
-    gameCtx.arc(this.nodes[this.player.position][0], this.nodes[this.player.position][1], this.nodeRadius, 0, Math.PI * 2);
+    gameCtx.arc(this.nodes[this.player.position].position[0], this.nodes[this.player.position].position[1], this.nodeRadius, 0, Math.PI * 2);
     if (this.player.detectableByEnemies) {
       gameCtx.fillStyle = this.colorMap.player;
     } else {
@@ -421,16 +714,16 @@ class Game {
     gameCtx.fill();
     if (this.state[0] == 'move') {
       gameCtx.beginPath();
-      gameCtx.arc(this.nodes[this.player.position][0], this.nodes[this.player.position][1], Math.min(this.player.moveRadius, this.player.fuel), 0, Math.PI * 2);
+      gameCtx.arc(this.nodes[this.player.position].position[0], this.nodes[this.player.position].position[1], Math.min(this.player.moveRadius, this.player.fuel), 0, Math.PI * 2);
       gameCtx.lineWidth = 1;
       gameCtx.strokeStyle = this.colorMap.playerMovementRadius;
       gameCtx.stroke();
     }
     this.drawStatus();
     for (let i = 0; i < this.enemies.length; i++) {
-      if (calculateDistance(this.nodes[this.enemies[i].position], this.nodes[this.player.position]) > this.player.radarRadius) { continue; }
+      if (calculateDistance(this.nodes[this.enemies[i].position].position, this.nodes[this.player.position].position) > this.player.radarRadius) { continue; }
       gameCtx.beginPath();
-      gameCtx.arc(this.nodes[this.enemies[i].position][0], this.nodes[this.enemies[i].position][1], this.nodeRadius, 0, Math.PI * 2);
+      gameCtx.arc(this.nodes[this.enemies[i].position].position[0], this.nodes[this.enemies[i].position].position[1], this.nodeRadius, 0, Math.PI * 2);
       if (this.enemies[i].targetPosition == null) {
         gameCtx.fillStyle = this.colorMap.enemyPassive;
       } else {
@@ -440,21 +733,11 @@ class Game {
     }
   }
 
-  drawSafeNode() {
-    if (this.safeNodeVisible) {
-      gameCtx.beginPath();
-      gameCtx.arc(this.nodes[this.safeNode][0], this.nodes[this.safeNode][1], this.nodeRadius, 0, Math.PI * 2);
-      gameCtx.fillStyle = this.colorMap.safe;
-      gameCtx.fill();
-    }
-  }
-
   draw() {
     gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height); // omitting the first line
     this.drawStatus()
     this.drawNodes();
     this.drawPlayerAndEnemies();
-    this.drawSafeNode();
     this.drawMessage();
     generateButtons(this.buttonOptions);
   }
@@ -502,17 +785,21 @@ class Game {
       if ((outcome == "destroyed") || ((this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration > 0) && (outcome == "stunned"))) {
         this.enemies.splice(collidedEnemiesIndices.pop(), 1);
         this.state[1] = collidedEnemiesIndices;
-        this.appendMessage(this.messageList.destroyedEnemy);
+        this.appendMessage(this.messageList.destroyedEnemy, this.colorMap.goodMessage);
+        this.quests.filter((quest) => (quest.questType == 'hunt')).forEach((quest) => {
+          quest.destination--;
+          if (quest.destination <= 0) { quest.completed = true; }
+        }) // update quest
       } else if (outcome == "stunned") {
         this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration++;
-        this.appendMessage(this.messageList.stunnedEnemy);
+        this.appendMessage(this.messageList.stunnedEnemy, this.colorMap.goodMessage);
       } else if (outcome == "missed") {
-        this.appendMessage(this.messageList.missedEnemy);
+        this.appendMessage(this.messageList.missedEnemy, this.colorMap.badMessage);
       }
     } else if ((this.buttonOptionClicked == "Cloak") && (this.player.cloaks > 0)) {
       if (Math.random() > 0.5) {
         this.useCloak();
-        this.appendMessage(this.messageList.startedCloak);
+        this.appendMessage(this.messageList.startedCloak, this.colorMap.goodMessage);
         this.state = ["move", "afterCollisionCloaked"];
         this.processGameState();
         this.draw();
@@ -520,15 +807,18 @@ class Game {
       }
       else {
         this.player.cloaks--;
-        this.appendMessage(this.messageList.cloakFailed);
+        this.appendMessage(this.messageList.cloakFailed, this.colorMap.badMessage);
       }
     } else if (this.buttonOptionClicked == "Move on") {
       collidedEnemiesIndices.pop();
       this.appendMessage(this.messageList.ignoreStunnedEnemy);
     }
 
-    if (this.player.missiles > 0) { this.buttonOptions.push("Missile"); }
-    if (this.player.cloaks > 0) { this.buttonOptions.push("Cloak"); }
+    if (this.player.missiles > 0 && collidedEnemiesIndices.length > 0) {
+      this.enableMissileButton = true;
+    } else {
+      this.enableMissileButton = false;
+    }
 
     if ((collidedEnemiesIndices.length > 0) && (this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration == 0) && (this.player.missiles == 0) && (this.player.cloaks == 0)) {
       this.state = ["lose", "collision"];
@@ -538,24 +828,83 @@ class Game {
     }
 
     if ((collidedEnemiesIndices.length > 1) && (this.buttonOptionClicked == 'Next turn')) {
-      this.appendMessage(this.messageList.multipleShipsCollision(collidedEnemiesIndices.length));
+      this.appendMessage(this.messageList.multipleShipsCollision(collidedEnemiesIndices.length), this.colorMap.badMessage);
     }
     if ((collidedEnemiesIndices.length > 0) && (this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration == 0)) {
-      this.appendMessage(this.messageList.singleShipCollision);
+      this.appendMessage(this.messageList.singleShipCollision, this.colorMap.badMessage);
     } else {
       this.buttonOptions.push("Move on")
     }
 
     if (collidedEnemiesIndices.length == 0) {
-      this.state = ['move', 'afterCollision'];
+      this.state = ['move', this.nodes[this.player.position].specialty];
       this.processGameState();
     }
 
     this.draw();
   }
 
-  isSafeNode() {
-    return (this.player.position == this.safeNode);
+  isSanctuary() {
+    return (this.player.position == this.sanctuary);
+  }
+
+  infoBroker() {
+    if (!this.nodes[this.sanctuary].visible) {
+      if (this.buttonOptionClicked == 'Buy') {
+        this.nodes[this.sanctuary].visible = true;
+        this.player.money -= this.buySanctuaryInfoPrice;
+      } else if (this.player.money >= this.buySanctuaryInfoPrice) {
+        this.appendMessage(this.messageList.infoBrokerOffer);
+        this.buttonOptions.push('Buy')
+      }
+    }
+    if (this.nodes[this.sanctuary].visible) {
+      this.appendMessage(this.messageList.infoBrokerAfterOffer);
+    }
+    this.draw();
+  }
+
+  randomNonspecialistNode() {
+    let choice = Math.floor(Math.random() * this.nodes.length);
+    while (this.nodes[choice].specialty != null) { choice = Math.round(Math.random() * this.nodes.length); }
+    return choice;
+  }
+
+  fixer() {
+    let questList = this.quests.filter((quest) => (quest.fixer == this.player.position));
+    const completedQuest = questList.filter((quest) => (quest.completed));
+    if (completedQuest.length > 0) {
+      this.player.money += completedQuest[0].reward;
+      questList = [];
+      this.quests = this.quests.filter((quest) => (quest.fixer != this.player.position));
+      this.appendMessage(this.messageList.rewardFixer(completedQuest[0].reward));
+    }
+
+    if (questList.length == 0) {
+      const newQuest = ['smuggle', 'hunt', 'seek'][Math.floor(Math.random() * 3)];
+      if (newQuest == 'smuggle') { // go to a particular point
+        const newDestination = this.randomNonspecialistNode();
+        const reward = Math.round(calculateDistance(this.nodes[this.player.position].position, this.nodes[newDestination].position) * 1.5 / 100 ) * 100;
+        this.quests.push(new quest(this.player.position, newQuest, newDestination, reward));
+        this.appendMessage(this.messageList.smuggleQuest);
+        this.appendMessage(this.messageList.newQuestMarkerAdded, this.colorMap.questMarker);
+      } else if (newQuest == 'hunt') { // destroy N UPA ships
+        const numTargets = 2 + Math.floor(Math.random() * 3);
+        const reward = 500 * numTargets;
+        this.quests.push(new quest(this.player.position, newQuest, numTargets, reward));
+        this.appendMessage(this.messageList.huntQuest(numTargets));
+      } else if (newQuest == 'seek') { // go to a particular point, but may arbitrarily extend
+        const newDestination = this.randomNonspecialistNode();
+        const reward = Math.round(calculateDistance(this.nodes[this.player.position], this.nodes[newDestination].position) * 1.5 / 100 ) * 100;
+        this.quests.push(new quest(this.player.position, newQuest, newDestination, reward));
+        this.appendMessage(this.messageList.seekQuest);
+        this.appendMessage(this.messageList.newQuestMarkerAdded, this.colorMap.questMarker);
+      }
+    } else {
+      this.appendMessage(this.messageList.fixerAlreadyHasQuest);
+    }
+
+    this.draw()
   }
 
   // this function should be used immediately after a state change
@@ -563,21 +912,29 @@ class Game {
     if (this.state[0] == "lose") {
       this.buttonOptions = [];
       if (this.state[1] == "collision")
-        this.appendMessage(this.messageList.loseCollision);
+        this.appendMessage(this.messageList.loseCollision, this.colorMap.badMessage);
     } else if (this.state[0] == "win") {
       this.player.detectableByEnemies = false;
       this.buttonOptions = [];
       if (this.state[1] == "sanctuary")
-        this.appendMessage(this.messageList.winSanctuary);
+        this.appendMessage(this.messageList.winSanctuary, this.colorMap.safe);
     } else if (this.state[0] == "move") {
       this.buttonOptions = ['Next turn'];
+      if (this.state[1] == 'infoBroker') {
+        this.infoBroker();
+      } else if (this.state[1] == 'fixer') {
+        this.fixer();
+      }
     } else if (this.state[0] == "collision") {
       this.collision();
+    } else { // temp: for dealing with incomplete states
+      this.state = ['move', null];
+      this.buttonOptions = ['Next turn'];
     }
   }
 
   isPositionNode(node, x, y) {
-    const dist = calculateDistance(this.nodes[node], [x, y]);
+    const dist = calculateDistance(this.nodes[node].position, [x, y]);
     return (dist <= this.nodeRadius);
   }
 
@@ -589,7 +946,7 @@ class Game {
     return null;
   }
 
-  nextTurn() {
+  move() {
     this.turn++;
     this.player.move();
     if (this.player.cloakedDuration > 0) {
@@ -597,19 +954,51 @@ class Game {
     } else if ((this.player.cloakedDuration == 0) && (!this.player.detectableByEnemies)) {
       this.player.detectableByEnemies = true;
     }
-    if (!this.visitedNodes.includes(this.player.position)) { this.visitedNodes.push(this.player.position); }
-    if (this.isSafeNode()) { this.state = ["win", "sanctuary"]; }
+
+    if (!this.nodes[this.player.position].visited) {
+      this.nodes[this.player.position].visited = true;
+      if (this.nodes[this.player.position].visitMessage != null && this.state != 'win') {
+        let messageColour = this.colorMap.neutralMessage;
+        if (this.nodes[this.player.position].specialty != null) {
+          if (this.nodes[this.player.position].specialty == 'sanctuary') {
+            messageColour = this.colorMap.safe;
+          } else if (this.nodes[this.player.position].specialty == 'capital') {
+            messageColour = this.colorMap.capitalUnvisited;
+          } else {
+            messageColour = this.colorMap.specialtyNodeUnvisited;
+          }
+        }
+        this.appendMessage([this.nodes[this.player.position].visitMessage], messageColour);
+      }
+    }
+
+    // update quest
+    const relevantQuests = this.quests.filter((quest) => (quest.questType != 'hunt' && quest.destination == this.player.position));
+    for (let i = 0; i < relevantQuests.length; i++) {
+      if (relevantQuests[i].questType == 'smuggle') {
+        relevantQuests[i].completed = true;
+        this.appendMessage(this.messageList.questCompleted);
+      } else if (relevantQuests[i].questType == 'seek') {
+        if (Math.random() > 0.5) {
+          relevantQuests[i].completed = true;
+          this.appendMessage(this.messageList.questCompleted);
+        } else {
+          relevantQuests[i].destination = this.randomNonspecialistNode();
+          this.appendMessage(this.messageList.newQuestMarkerAdded, this.colorMap.questMarker);
+        }
+      }
+    }
 
     // enemy movement
     const numPursuingEnemiesBefore = this.enemies.filter(enemy => enemy.targetPosition != null).length;
     for (let i = 0; i < this.enemies.length; i++) {
       this.enemies[i].move();
-      this.enemies[i].decideTargetPosition(this.nodes, this.player, this.safeNode, this);
-      this.enemies[i].decideNextPosition(this.nodes, this.player, this.safeNode);
+      this.enemies[i].decideTargetPosition(this.nodes, this.player, this.sanctuary, this);
+      this.enemies[i].decideNextPosition(this.nodes, this.player, this.sanctuary);
     }
     const numPursuingEnemiesAfter = this.enemies.filter(enemy => enemy.targetPosition != null).length;
 
-    if (numPursuingEnemiesAfter > numPursuingEnemiesBefore + 1) {
+    if (numPursuingEnemiesAfter > numPursuingEnemiesBefore + 1) { // not perfect, as it'll be incorrect for when an enemy stops pursuing while another starts
       this.appendMessage(this.messageList.detectedByEnemies);
     } else if (numPursuingEnemiesAfter == numPursuingEnemiesBefore + 1) {
       this.appendMessage(this.messageList.detectedByEnemy);
@@ -617,7 +1006,17 @@ class Game {
 
     // checking for collision
     const collidedEnemiesIndices = this.findCollidedEnemies();
-    if ((collidedEnemiesIndices.length > 0) && (this.player.detectableByEnemies)) { this.state = ['collision', collidedEnemiesIndices]; }
+    if ((collidedEnemiesIndices.length > 0) && (this.player.detectableByEnemies)) {
+      this.state = ['collision', collidedEnemiesIndices];
+    } else if (collidedEnemiesIndices.length == 0) { // specialty nodes
+      if (this.isSanctuary()) {
+        this.state = ['win', 'sanctuary'];
+      } else if (this.nodes[this.player.position].specialty == 'capital') {
+        this.state = ['capital', null];
+      } else {
+        this.state = ['move', this.nodes[this.player.position].specialty];
+      }
+    }
 
     this.processGameState();
     this.draw();
@@ -628,26 +1027,25 @@ let game = new Game(
   numNodes = 150,
   nodeRadius = 5,
   playerMoveRadius = 80,
-  playerInitialFuel = 2000,
+  playerInitialFuel = 4000,
   playerInitialMissiles = 2,
   playerInitialCloaks = 1,
-  playerInitialPosition = 0,
-  enemyMoveRadius = [80, 80],
-  enemyInitialPositions = Array.from({ length: 2 }, () => 1 + Math.floor(Math.random() * (150 - 1)))
+  playerInitialMoney = 100,
+  enemyMoveRadius = 80,
+  numInitialEnemies = document.getElementById("num-enemies").value
 );
 
 document.getElementById("new-game").addEventListener("click", function () {
-  let numEnemies = document.getElementById("num-enemies").value;
   game = new Game(
     numNodes = 150,
     nodeRadius = 5,
     playerMoveRadius = 80,
-    playerInitialFuel = 2000,
+    playerInitialFuel = 4000,
     playerInitialMissiles = 2,
     playerInitialCloaks = 1,
-    playerInitialPosition = 0,
-    enemyMoveRadius = Array.from({ length: numEnemies }, () => 80),
-    enemyInitialPositions = Array.from({ length: numEnemies }, () => 1 + Math.floor(Math.random() * (150 - 1)))
+    playerInitialMoney = 100,
+    enemyMoveRadius = 80,
+    numInitialEnemies = document.getElementById("num-enemies").value
   );
 });
 
@@ -657,15 +1055,15 @@ gameCanvas.addEventListener('click', (e) => {
   let mouseX = e.offsetX;
   let mouseY = e.offsetY;
   let positionClicked = game.findNodeByPosition(mouseX, mouseY);
-  if (positionClicked != null) {
+  if (positionClicked != null && !(positionClicked == game.sanctuary && !game.nodes[game.sanctuary].visible)) {
     game.player.setNextPosition(positionClicked, game.nodes);
     // indicate next position
     gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
     game.draw();
     if (game.player.nextPosition != null) {
       gameCtx.beginPath();
-      gameCtx.moveTo(game.nodes[game.player.position][0], game.nodes[game.player.position][1]);
-      gameCtx.lineTo(game.nodes[game.player.nextPosition][0], game.nodes[game.player.nextPosition][1]);
+      gameCtx.moveTo(game.nodes[game.player.position].position[0], game.nodes[game.player.position].position[1]);
+      gameCtx.lineTo(game.nodes[game.player.nextPosition].position[0], game.nodes[game.player.nextPosition].position[1]);
       gameCtx.strokeStyle = game.colorMap.player;
       gameCtx.stroke();
     }
@@ -674,22 +1072,23 @@ gameCanvas.addEventListener('click', (e) => {
 
 messageCanvas.addEventListener('click', (event) => {
   const result = checkMessageButtonClick(event);
-  if (game.state[0] == 'move' && result == 'useCloak') {
+  if (game.state[0] != 'collision' && result == 'useCloak') {
     game.buttonOptionClicked = 'useCloak';
-    game.appendMessage(game.messageList.startedCloak);
+    game.appendMessage(game.messageList.startedCloak, game.colorMap.goodMessage);
     game.useCloak();
+  } else if (result == 'useMissile') {
+    game.buttonOptionClicked = 'Missile';
   } else if (result != null) {
     game.buttonOptionClicked = game.buttonOptions[result];
   } else {
     return null;
   }
   if (game.buttonOptionClicked == 'Next turn') {
-    game.nextTurn();
+    game.move();
   } else if (game.state[0] == 'collision' && result == 'useCloak') {
     game.buttonOptionClicked = 'Cloak';
     game.processGameState();
-  }
-  else if (['Missile', 'Cloak', 'Move on'].includes(game.buttonOptionClicked)) {
+  } else if (['Missile', 'Cloak', 'Move on', 'Buy'].includes(game.buttonOptionClicked)) {
     game.processGameState();
   }
 });
