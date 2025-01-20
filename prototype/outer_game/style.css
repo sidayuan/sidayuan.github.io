@@ -35,3 +35,10 @@ button {
 button:hover {
   background-color: #666;
 }
+
+#tooltip {
+  user-select: none;
+  font-size: 14px;
+  line-height: 0.5;
+  text-align: center;
+}

@@ -4,6 +4,7 @@ const gameCtx = gameCanvas.getContext('2d');
 
 const messageCanvas = document.getElementById('messageCanvas');
 const messageCtx = messageCanvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
 
 function calculateDistance(a, b) { return Math.sqrt(Math.pow(a[0] - b[0], 2) + Math.pow(a[1] - b[1], 2)) }
 
@@ -146,6 +147,8 @@ class Player {
     this.detectableByEnemies = true;
     this.cloakedDuration = 0;
     this.radarRadius = 3 * this.moveRadius; // can be parametrised
+    this.targetingLevel = 1; // influences effectiveness of missiles
+    this.stealthLevel = 1;
   }
 
   setNextPosition(nextPosition, nodes) {
@@ -308,9 +311,25 @@ class Game {
     this.nodeRadius = nodeRadius;
     this.nodes = [];
     this.sanctuary = null;
-    this.buySanctuaryInfoPrice = 100;
+    this.capital = null;
     this.quests = [];
     this.messages = [];
+    this.questsCompleted = 0;
+    this.notoriety = 4; // +1 max enemy ship for every +2 notoriety
+
+    this.initialPrices = {
+      buySanctuaryInfoPrice : 10000,
+      initialBuyFuelPriceRefinery : 100,
+      initialSellMissilePriceRefinery : 250,
+      initialSellCloakPriceRefinery : 625,
+      initialBuyMissilePriceArmsDealer : 200,
+      initialSellCloakPriceArmsDealer : 750,
+      initialSellFuelPriceArmsDealer : 150,
+      initialBuyCloakPriceTechDealer : 500,
+      initialSellMissilePriceTechDealer : 300,
+      initialSellFuelPriceTechDealer : 150,
+      initialUpgradeCost : 800,
+    }
 
     this.messageList = {
       start : [`You've heard whispers about a sanctuary hidden from the UPA. You have nothing left to lose but your own life now.`],
@@ -448,8 +467,8 @@ class Game {
         `You approach a familiar space station. You remember reading about its capture a long time ago.`
       ],
       infoBrokerOffer : [
-        `You hear a digitised voice coming from your interface. "I know who you are, and I know what you want," it says. "I'll tell you where it is for $${this.buySanctuaryInfoPrice}."`,
-        `I KNOW WHERE YOU WANT TO GO. $${this.buySanctuaryInfoPrice}.`
+        `You hear a digitised voice coming from your interface. "I know who you are, and I know what you want," it says. "I'll tell you where it is for $${this.initialPrices.buySanctuaryInfoPrice}."`,
+        `I KNOW WHERE YOU WANT TO GO. $${this.initialPrices.buySanctuaryInfoPrice}.`
       ],
       infoBrokerAfterOffer : [
         `All you hear is static. The information broker has nothing more to say.`,
@@ -488,6 +507,46 @@ class Game {
       questCompleted : [
         `You've done your job. It's time to collect your reward.`,
         `Job completed. You hope the fixer lives up to their word.`
+      ],
+      refineryOffer(buyFuelprice, sellMissilePrice, sellCloakPrice) {
+        return [
+          `The anaemic fuel trader taps the sign. SELLING: 100 Fuel $${buyFuelprice}. BUYING: Missile $${sellMissilePrice}, Cloak $${sellCloakPrice}.`,
+          `The mute child points to the cracked screen. SELLING: 100 Fuel $${buyFuelprice}. BUYING: Missile $${sellMissilePrice}, Cloak $${sellCloakPrice}.`
+        ]
+      },
+      armsDealerOffer(buyMissilePrice, sellFuelPrice, sellCloakPrice) {
+        return [
+          `The arms dealer points to the writing on the wall with the only arm he has left. SELLING: Missile $${buyMissilePrice}. BUYING: 100 fuel $${sellFuelPrice}, Cloak $${sellCloakPrice}.`,
+          `The slender arms dealer coughs into a dirty cloth as he passes you a note. SELLING: Missile $${buyMissilePrice}. BUYING: 100 fuel $${sellFuelPrice}, Cloak $${sellCloakPrice}.`
+        ]
+      },
+      techDealerOffer(buyCloakPrice, sellFuelPrice, sellMissilePrice) {
+        return [
+          `The tech dealer's rusty mechanical arm projects a hologram in front of you. SELLING: Cloak $${buyCloakPrice}. BUYING: 100 fuel $${sellFuelPrice}, Missile $${sellMissilePrice}.`,
+          `The feeble child shows you the interface in their forearm. SELLING: Cloak $${buyCloakPrice}. BUYING: 100 fuel $${sellFuelPrice}, Missile $${sellMissilePrice}.`
+        ]
+      },
+      mechanicOffer(upgradePrice) {
+        return [
+          `The sickly mechanic glances at your ship. She thinks for what seems too long, until, "I can customise your ship for $${upgradePrice}."`,
+          `The elderly mechanic scratches at the blister on her arm. "I can help you," she says, "if you'll help me. $${upgradePrice} and I'll improve your ship."`
+        ]
+      },
+      upgradedEngine : [
+        `Your engine is upgraded. It will take you further.`,
+        `Your engine is upgraded. It's faster now.`
+      ],
+      upgradedSensor : [
+        `Your sensor is upgraded. It's harder to surprise you now.`,
+        `Your sensor is upgraded. You can now see them from another lightyear away.`
+      ],
+      upgradedTargeting : [
+        `Your missile targeting system is upgraded. Hopefully this means you won't miss from now on.`,
+        `Your missile targeting system is upgraded. The problem definitely wasn't you.`
+      ],
+      upgradedStealth : [
+        `Your stealth generator is upgraded. They won't know you were ever there.`,
+        `Your stealth generator is upgraded. Hopefully it extends your life by another cycle or two.`
       ]
     };
 
@@ -620,6 +679,7 @@ class Game {
       this.messageList.enterCapital[Math.floor(Math.random() * this.messageList.enterCapital.length)],
       true
     ));
+    this.capital = this.nodes.length - 1;
 
     const nodesSet = this.nodes.length;
     for (let i = nodesSet; i < this.numNodes; i++) {
@@ -745,7 +805,7 @@ class Game {
   useCloak() {
     if (this.player.cloaks > 0) {
       this.player.detectableByEnemies = false;
-      this.player.cloakedDuration++;
+      this.player.cloakedDuration += this.player.stealthLevel;
       this.player.cloaks--;
       this.draw();
     }
@@ -753,9 +813,9 @@ class Game {
 
   missileOutcome() {
     let rng = Math.random();
-    if (rng < 0.8) {
+    if (rng < 0.8 + 0.05 * this.player.targetingLevel) {
       rng = Math.random();
-      if (rng < 0.5) {
+      if (rng < 0.5 + 0.05 + this.player.targetingLevel) {
         return "destroyed";
       } else {
         return "stunned";
@@ -782,13 +842,20 @@ class Game {
     if ((this.buttonOptionClicked == "Missile") && (this.player.missiles > 0)) {
       this.player.missiles--;
       let outcome = this.missileOutcome();
-      if ((outcome == "destroyed") || ((this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration > 0) && (outcome == "stunned"))) {
+      if ((outcome == "destroyed") || (this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration > 0)) {
         this.enemies.splice(collidedEnemiesIndices.pop(), 1);
         this.state[1] = collidedEnemiesIndices;
+        this.notoriety++;
         this.appendMessage(this.messageList.destroyedEnemy, this.colorMap.goodMessage);
         this.quests.filter((quest) => (quest.questType == 'hunt')).forEach((quest) => {
-          quest.destination--;
-          if (quest.destination <= 0) { quest.completed = true; }
+          if (quest.destination > 0) {
+            quest.destination--;
+            if (quest.destination == 0) {
+              quest.completed = true;
+              this.notoriety++;
+              this.appendMessage(this.messageList.questCompleted, this.colorMap.goodMessage);
+            }
+          }
         }) // update quest
       } else if (outcome == "stunned") {
         this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration++;
@@ -797,7 +864,7 @@ class Game {
         this.appendMessage(this.messageList.missedEnemy, this.colorMap.badMessage);
       }
     } else if ((this.buttonOptionClicked == "Cloak") && (this.player.cloaks > 0)) {
-      if (Math.random() > 0.5) {
+      if (Math.random() < 0.5 + this.player.stealthLevel * 0.05) {
         this.useCloak();
         this.appendMessage(this.messageList.startedCloak, this.colorMap.goodMessage);
         this.state = ["move", "afterCollisionCloaked"];
@@ -852,14 +919,16 @@ class Game {
     if (!this.nodes[this.sanctuary].visible) {
       if (this.buttonOptionClicked == 'Buy') {
         this.nodes[this.sanctuary].visible = true;
-        this.player.money -= this.buySanctuaryInfoPrice;
-      } else if (this.player.money >= this.buySanctuaryInfoPrice) {
-        this.appendMessage(this.messageList.infoBrokerOffer);
-        this.buttonOptions.push('Buy')
+        this.player.money -= this.initialPrices.buySanctuaryInfoPrice;
+      } else {
+        this.appendMessage(this.messageList.infoBrokerOffer, this.colorMap.specialtyNodeUnvisited);
+        if (this.player.money >= this.initialPrices.buySanctuaryInfoPrice) {
+          this.buttonOptions.push('Buy')
+        }
       }
     }
     if (this.nodes[this.sanctuary].visible) {
-      this.appendMessage(this.messageList.infoBrokerAfterOffer);
+      this.appendMessage(this.messageList.infoBrokerAfterOffer, this.colorMap.specialtyNodeUnvisited);
     }
     this.draw();
   }
@@ -877,7 +946,7 @@ class Game {
       this.player.money += completedQuest[0].reward;
       questList = [];
       this.quests = this.quests.filter((quest) => (quest.fixer != this.player.position));
-      this.appendMessage(this.messageList.rewardFixer(completedQuest[0].reward));
+      this.appendMessage(this.messageList.rewardFixer(completedQuest[0].reward), this.colorMap.goodMessage);
     }
 
     if (questList.length == 0) {
@@ -886,47 +955,227 @@ class Game {
         const newDestination = this.randomNonspecialistNode();
         const reward = Math.round(calculateDistance(this.nodes[this.player.position].position, this.nodes[newDestination].position) * 1.5 / 100 ) * 100;
         this.quests.push(new quest(this.player.position, newQuest, newDestination, reward));
-        this.appendMessage(this.messageList.smuggleQuest);
+        this.appendMessage(this.messageList.smuggleQuest, this.colorMap.specialtyNodeUnvisited);
         this.appendMessage(this.messageList.newQuestMarkerAdded, this.colorMap.questMarker);
       } else if (newQuest == 'hunt') { // destroy N UPA ships
         const numTargets = 2 + Math.floor(Math.random() * 3);
         const reward = 500 * numTargets;
         this.quests.push(new quest(this.player.position, newQuest, numTargets, reward));
-        this.appendMessage(this.messageList.huntQuest(numTargets));
+        this.appendMessage(this.messageList.huntQuest(numTargets), this.colorMap.specialtyNodeUnvisited);
       } else if (newQuest == 'seek') { // go to a particular point, but may arbitrarily extend
         const newDestination = this.randomNonspecialistNode();
-        const reward = Math.round(calculateDistance(this.nodes[this.player.position], this.nodes[newDestination].position) * 1.5 / 100 ) * 100;
+        const reward = Math.round(calculateDistance(this.nodes[this.player.position].position, this.nodes[newDestination].position) * 1.5 / 100 ) * 100;
         this.quests.push(new quest(this.player.position, newQuest, newDestination, reward));
-        this.appendMessage(this.messageList.seekQuest);
+        this.appendMessage(this.messageList.seekQuest, this.colorMap.specialtyNodeUnvisited);
         this.appendMessage(this.messageList.newQuestMarkerAdded, this.colorMap.questMarker);
       }
     } else {
-      this.appendMessage(this.messageList.fixerAlreadyHasQuest);
+      this.appendMessage(this.messageList.fixerAlreadyHasQuest, this.colorMap.specialtyNodeUnvisited);
     }
 
     this.draw()
+  }
+
+  sell() {
+    this.buttonOptions = [];
+    if (this.buttonOptionClicked == 'Sell missile') {
+      this.player.missiles--;
+      this.player.money += this.nodes[this.player.position].sellMissilePrice;
+    } else if (this.buttonOptionClicked == 'Sell cloak') {
+      this.player.cloaks--;
+      this.player.money += this.nodes[this.player.position].sellCloakPrice;
+    } else if (this.buttonOptionClicked == 'Sell 100 fuel') {
+      this.player.fuel -= 1000;
+      this.player.money += this.nodes[this.player.position].sellFuelPrice;
+    } else if (this.buttonOptionClicked == 'Back') {
+      this.state = ['move', this.state[1]];
+      this.processGameState();
+      this.draw();
+      return null;
+    }
+    if (this.state[1] == 'refinery') {
+      if (this.player.missiles > 0) { this.buttonOptions.push('Sell missile'); }
+      if (this.player.cloaks > 0) { this.buttonOptions.push('Sell cloak'); }
+    } else if (this.state[1] == 'armsDealer') {
+      if (this.player.fuel > 1000) { this.buttonOptions.push('Sell 100 fuel'); }
+      if (this.player.cloaks > 0) { this.buttonOptions.push('Sell cloak'); }
+    } else if (this.state[1] == 'techDealer') {
+      if (this.player.fuel > 1000) { this.buttonOptions.push('Sell 100 fuel'); }
+      if (this.player.missiles > 0) { this.buttonOptions.push('Sell missile'); }
+    }
+    this.buttonOptions.push('Back');
+    this.draw();
+  }
+
+  refinery() {
+    if (!('lastVisited' in this.nodes[this.player.position])) {
+      this.nodes[this.player.position].buyFuelPrice = this.initialPrices.initialBuyFuelPriceRefinery;
+      this.nodes[this.player.position].sellMissilePrice = this.initialPrices.initialSellMissilePriceRefinery;
+      this.nodes[this.player.position].sellCloakPrice = this.initialPrices.initialSellCloakPriceRefinery;
+    }
+    if (!('lastVisited' in this.nodes[this.player.position]) || this.turn - this.nodes[this.player.position].lastVisited > 0) {
+      this.appendMessage(this.messageList.refineryOffer(
+        this.nodes[this.player.position].buyFuelPrice,
+        this.nodes[this.player.position].sellMissilePrice,
+        this.nodes[this.player.position].sellCloakPrice
+      ), this.colorMap.specialtyNodeUnvisited);
+    }
+    this.buttonOptions.push('Buy');
+    this.buttonOptions.push('Sell');
+    if (this.buttonOptionClicked == 'Buy') {
+      this.player.fuel += 1000;
+      this.player.money -= this.nodes[this.player.position].buyFuelPrice;
+    } else if (this.buttonOptionClicked == 'Sell') {
+      this.state = ['sell', 'refinery'];
+      this.processGameState();
+    }
+
+    this.nodes[this.player.position].lastVisited = this.turn;
+    this.draw();
+  }
+
+  armsDealer() {
+    if (!('lastVisited' in this.nodes[this.player.position])) {
+      this.nodes[this.player.position].buyMissilePrice = this.initialPrices.initialBuyMissilePriceArmsDealer;
+      this.nodes[this.player.position].sellFuelPrice = this.initialPrices.initialSellFuelPriceArmsDealer;
+      this.nodes[this.player.position].sellCloakPrice = this.initialPrices.initialSellCloakPriceArmsDealer;
+    }
+    if (!('lastVisited' in this.nodes[this.player.position]) || this.turn - this.nodes[this.player.position].lastVisited > 0) {
+      this.appendMessage(this.messageList.armsDealerOffer(
+        this.nodes[this.player.position].buyMissilePrice,
+        this.nodes[this.player.position].sellFuelPrice,
+        this.nodes[this.player.position].sellCloakPrice
+      ), this.colorMap.specialtyNodeUnvisited);
+    }
+    this.buttonOptions.push('Buy');
+    this.buttonOptions.push('Sell');
+    if (this.buttonOptionClicked == 'Buy') {
+      this.player.missiles++;
+      this.player.money -= this.nodes[this.player.position].buyMissilePrice;
+    } else if (this.buttonOptionClicked == 'Sell') {
+      this.state = ['sell', 'armsDealer'];
+      this.processGameState();
+    }
+
+    this.nodes[this.player.position].lastVisited = this.turn;
+    this.draw();
+  }
+
+  techDealer() {
+    if (!('lastVisited' in this.nodes[this.player.position])) {
+      this.nodes[this.player.position].buyCloakPrice = this.initialPrices.initialBuyCloakPriceTechDealer;
+      this.nodes[this.player.position].sellFuelPrice = this.initialPrices.initialSellFuelPriceTechDealer;
+      this.nodes[this.player.position].sellMissilePrice = this.initialPrices.initialSellMissilePriceTechDealer;
+    }
+    if (!('lastVisited' in this.nodes[this.player.position]) || this.turn - this.nodes[this.player.position].lastVisited > 0) {
+      this.appendMessage(this.messageList.techDealerOffer(
+        this.nodes[this.player.position].buyCloakPrice,
+        this.nodes[this.player.position].sellFuelPrice,
+        this.nodes[this.player.position].sellMissilePrice
+      ), this.colorMap.specialtyNodeUnvisited);
+    }
+    this.buttonOptions.push('Buy');
+    this.buttonOptions.push('Sell');
+    if (this.buttonOptionClicked == 'Buy') {
+      this.player.cloaks++;
+      this.player.money -= this.nodes[this.player.position].buyCloakPrice;
+    } else if (this.buttonOptionClicked == 'Sell') {
+      this.state = ['sell', 'techDealer'];
+      this.processGameState();
+    }
+
+    this.nodes[this.player.position].lastVisited = this.turn;
+    this.draw();
+  };
+
+  mechanic() {
+    if (!('lastVisited' in this.nodes[this.player.position])) {
+      this.nodes[this.player.position].upgradeCount = 0;
+    }
+    const upgradePrice = Math.floor(this.initialPrices.initialUpgradeCost * (1.5 ** this.nodes[this.player.position].upgradeCount) / 100 ) * 100;
+    if (!('lastVisited' in this.nodes[this.player.position]) || this.turn - this.nodes[this.player.position].lastVisited > 0) {
+      this.appendMessage(this.messageList.mechanicOffer(upgradePrice), this.colorMap.specialtyNodeUnvisited);
+    }
+    if (['Next turn', 'Back'].includes(this.buttonOptionClicked) && this.player.money >= upgradePrice) {
+      this.buttonOptions.push('Ship upgrades');
+      this.buttonOptions.push('Tech upgrades');
+    } else if (this.buttonOptionClicked == 'Ship upgrades') {
+      this.buttonOptions = ['Engine', 'Sensor', 'Back'];
+    } else if (this.buttonOptionClicked == 'Tech upgrades') {
+      this.buttonOptions = ['Targeting', 'Stealth', 'Back'];
+    } else if (this.buttonOptionClicked == 'Engine') {
+      this.player.moveRadius += 20;
+      this.player.money -= upgradePrice;
+      this.nodes[this.player.position].upgradeCount++;
+      this.player.nextPosition = this.player.position;
+      this.buttonOptionClicked = null;
+      this.move();
+      this.appendMessage(this.messageList.upgradedEngine, this.colorMap.goodMessage);
+    } else if (this.buttonOptionClicked == 'Sensor') {
+      this.player.radarRadius += 3 * 20;
+      this.player.money -= upgradePrice;
+      this.nodes[this.player.position].upgradeCount++;
+      this.player.nextPosition = this.player.position;
+      this.buttonOptionClicked = null;
+      this.move();
+      this.appendMessage(this.messageList.upgradedSensor, this.colorMap.goodMessage);
+    } else if (this.buttonOptionClicked == 'Targeting') {
+      this.player.targetingLevel++;
+      this.player.money -= upgradePrice;
+      this.nodes[this.player.position].upgradeCount++;
+      this.player.nextPosition = this.player.position;
+      this.buttonOptionClicked = null;
+      this.move();
+      this.appendMessage(this.messageList.upgradedTargeting, this.colorMap.goodMessage);
+    } else if (this.buttonOptionClicked == 'Stealth') {
+      this.player.stealthLevel++;
+      this.player.money -= upgradePrice;
+      this.nodes[this.player.position].upgradeCount++;
+      this.player.nextPosition = this.player.position;
+      this.buttonOptionClicked = null;
+      this.move();
+      this.appendMessage(this.messageList.upgradedStealth, this.colorMap.goodMessage);
+    }
+
+    this.nodes[this.player.position].lastVisited = this.turn;
+    this.draw();
   }
 
   // this function should be used immediately after a state change
   processGameState() {
     if (this.state[0] == "lose") {
       this.buttonOptions = [];
-      if (this.state[1] == "collision")
+      if (this.state[1] == "collision") {
         this.appendMessage(this.messageList.loseCollision, this.colorMap.badMessage);
+        this.draw()
+      }
     } else if (this.state[0] == "win") {
       this.player.detectableByEnemies = false;
       this.buttonOptions = [];
-      if (this.state[1] == "sanctuary")
+      if (this.state[1] == "sanctuary") {
         this.appendMessage(this.messageList.winSanctuary, this.colorMap.safe);
+        this.draw()
+      }
     } else if (this.state[0] == "move") {
+      this.visit();
       this.buttonOptions = ['Next turn'];
       if (this.state[1] == 'infoBroker') {
         this.infoBroker();
       } else if (this.state[1] == 'fixer') {
         this.fixer();
+      } else if (this.state[1] == "refinery") {
+        this.refinery();
+      } else if (this.state[1] == "armsDealer") {
+        this.armsDealer();
+      } else if (this.state[1] == "techDealer") {
+        this.techDealer();
+      } else if (this.state[1] == "mechanic") {
+        this.mechanic();
       }
     } else if (this.state[0] == "collision") {
       this.collision();
+    } else if (this.state[0] == "sell") {
+      this.sell();
     } else { // temp: for dealing with incomplete states
       this.state = ['move', null];
       this.buttonOptions = ['Next turn'];
@@ -938,6 +1187,15 @@ class Game {
     return (dist <= this.nodeRadius);
   }
 
+  generateEnemy() {
+    const maxEnemies = this.notoriety / 2;
+    const prob = (maxEnemies - this.enemies.length) / (2 * maxEnemies);
+    if (Math.random() < prob) {
+      this.enemies.push(new Enemy(this.capital, enemyMoveRadius));
+      this.enemies[this.enemies.length - 1].decideNextPosition(this.nodes, this.player);
+    }
+  }
+
   findNodeByPosition(x, y) {
     // simple iterative search - can be made into a binary search
     for (let i = 0; i < this.numNodes; i++) {
@@ -946,21 +1204,16 @@ class Game {
     return null;
   }
 
-  move() {
-    this.turn++;
-    this.player.move();
-    if (this.player.cloakedDuration > 0) {
-      this.player.cloakedDuration--;
-    } else if ((this.player.cloakedDuration == 0) && (!this.player.detectableByEnemies)) {
-      this.player.detectableByEnemies = true;
-    }
-
+  visit() {
+    // first visit
     if (!this.nodes[this.player.position].visited) {
       this.nodes[this.player.position].visited = true;
       if (this.nodes[this.player.position].visitMessage != null && this.state != 'win') {
         let messageColour = this.colorMap.neutralMessage;
         if (this.nodes[this.player.position].specialty != null) {
           if (this.nodes[this.player.position].specialty == 'sanctuary') {
+            this.state = ['win', 'sanctuary'];
+            this.processGameState();
             messageColour = this.colorMap.safe;
           } else if (this.nodes[this.player.position].specialty == 'capital') {
             messageColour = this.colorMap.capitalUnvisited;
@@ -977,16 +1230,40 @@ class Game {
     for (let i = 0; i < relevantQuests.length; i++) {
       if (relevantQuests[i].questType == 'smuggle') {
         relevantQuests[i].completed = true;
-        this.appendMessage(this.messageList.questCompleted);
+        this.notoriety++;
+        this.appendMessage(this.messageList.questCompleted, this.colorMap.goodMessage);
       } else if (relevantQuests[i].questType == 'seek') {
         if (Math.random() > 0.5) {
           relevantQuests[i].completed = true;
-          this.appendMessage(this.messageList.questCompleted);
+          this.notoriety++;
+          this.appendMessage(this.messageList.questCompleted, this.colorMap.goodMessage);
         } else {
           relevantQuests[i].destination = this.randomNonspecialistNode();
+          relevantQuests[i].reward += Math.round(calculateDistance(this.nodes[this.player.position].position, this.nodes[relevantQuests[i].destination].position) / 10) * 10;
           this.appendMessage(this.messageList.newQuestMarkerAdded, this.colorMap.questMarker);
         }
       }
+    }
+
+    // specialty nodes
+    if (this.isSanctuary()) {
+      this.state = ['win', 'sanctuary'];
+      this.processGameState();
+    } else if (this.nodes[this.player.position].specialty == 'capital') {
+      //this.state = ['capital', null]; // using this line would force the player to stay at Centralis for a turn
+      this.state = ['move', this.nodes[this.player.position].specialty];
+    } else {
+      this.state = ['move', this.nodes[this.player.position].specialty];
+    }
+  }
+
+  move() {
+    this.turn++;
+    this.player.move();
+    if (this.player.cloakedDuration > 0) {
+      this.player.cloakedDuration--;
+    } else if ((this.player.cloakedDuration == 0) && (!this.player.detectableByEnemies)) {
+      this.player.detectableByEnemies = true;
     }
 
     // enemy movement
@@ -996,6 +1273,7 @@ class Game {
       this.enemies[i].decideTargetPosition(this.nodes, this.player, this.sanctuary, this);
       this.enemies[i].decideNextPosition(this.nodes, this.player, this.sanctuary);
     }
+    this.generateEnemy();
     const numPursuingEnemiesAfter = this.enemies.filter(enemy => enemy.targetPosition != null).length;
 
     if (numPursuingEnemiesAfter > numPursuingEnemiesBefore + 1) { // not perfect, as it'll be incorrect for when an enemy stops pursuing while another starts
@@ -1008,14 +1286,6 @@ class Game {
     const collidedEnemiesIndices = this.findCollidedEnemies();
     if ((collidedEnemiesIndices.length > 0) && (this.player.detectableByEnemies)) {
       this.state = ['collision', collidedEnemiesIndices];
-    } else if (collidedEnemiesIndices.length == 0) { // specialty nodes
-      if (this.isSanctuary()) {
-        this.state = ['win', 'sanctuary'];
-      } else if (this.nodes[this.player.position].specialty == 'capital') {
-        this.state = ['capital', null];
-      } else {
-        this.state = ['move', this.nodes[this.player.position].specialty];
-      }
     }
 
     this.processGameState();
@@ -1027,12 +1297,12 @@ let game = new Game(
   numNodes = 150,
   nodeRadius = 5,
   playerMoveRadius = 80,
-  playerInitialFuel = 4000,
-  playerInitialMissiles = 2,
-  playerInitialCloaks = 1,
-  playerInitialMoney = 100,
+  playerInitialFuel = 5000,
+  playerInitialMissiles = 0,
+  playerInitialCloaks = 0,
+  playerInitialMoney = 500,
   enemyMoveRadius = 80,
-  numInitialEnemies = document.getElementById("num-enemies").value
+  numInitialEnemies = 0
 );
 
 document.getElementById("new-game").addEventListener("click", function () {
@@ -1040,12 +1310,12 @@ document.getElementById("new-game").addEventListener("click", function () {
     numNodes = 150,
     nodeRadius = 5,
     playerMoveRadius = 80,
-    playerInitialFuel = 4000,
-    playerInitialMissiles = 2,
-    playerInitialCloaks = 1,
-    playerInitialMoney = 100,
+    playerInitialFuel = 5000,
+    playerInitialMissiles = 0,
+    playerInitialCloaks = 0,
+    playerInitialMoney = 500,
     enemyMoveRadius = 80,
-    numInitialEnemies = document.getElementById("num-enemies").value
+    numInitialEnemies = 0
   );
 });
 
@@ -1088,7 +1358,57 @@ messageCanvas.addEventListener('click', (event) => {
   } else if (game.state[0] == 'collision' && result == 'useCloak') {
     game.buttonOptionClicked = 'Cloak';
     game.processGameState();
-  } else if (['Missile', 'Cloak', 'Move on', 'Buy'].includes(game.buttonOptionClicked)) {
+  } else if (['Missile', 'Cloak', 'Move on', 'Buy', 'Sell', 'Sell missile',
+      'Sell cloak', 'Sell 100 fuel', 'Ship upgrades', 'Tech upgrades', 'Back',
+      'Engine', 'Sensor', 'Targeting', 'Stealth'].includes(game.buttonOptionClicked)) {
     game.processGameState();
+  }
+});
+
+// function to check if the mouse is over a node
+function isMouseOverNode(mouseX, mouseY, nodePosition) {
+  return calculateDistance([mouseX, mouseY], nodePosition) <= game.nodeRadius;
+}
+
+gameCanvas.addEventListener('mousemove', (event) => {
+  const canvasRect = gameCanvas.getBoundingClientRect();
+  const mouseX = event.clientX - canvasRect.left;
+  const mouseY = event.clientY - canvasRect.top;
+  tooltip.innerHTML = ``;
+  let hoveredNode = null;
+  game.nodes.forEach(node => {
+    if (isMouseOverNode(mouseX, mouseY, node.position) && node.visible) { hoveredNode = node; }
+  });
+  let numEnemies = 0;
+  if (hoveredNode) {
+    numEnemies = game.enemies.filter((enemy) => (game.nodes[enemy.position].position == hoveredNode.position)).length;
+  }
+  if (hoveredNode) {
+    tooltip.style.display = 'block';
+    tooltip.style.left = `${event.clientX + 15}px`;//`${event.clientX - tooltip.offsetWidth - 20}px`;
+    tooltip.style.top = `${event.clientY + 15}px`;//`${event.clientY - tooltip.offsetHeight - 20}px`;
+    let htmlString = ``;
+    if (hoveredNode.specialty == 'sanctuary') {
+      htmlString += `<span style="color:${game.colorMap.safe}">${hoveredNode.name}</span>`;
+    } else if (hoveredNode.specialty == 'capital' && (hoveredNode.visited || calculateDistance(hoveredNode.position, game.nodes[game.player.position].position) <= game.player.moveRadius)) {
+      htmlString += `<span style="color:${game.colorMap.capitalVisited}">${hoveredNode.name}</span>`;
+    } else if (hoveredNode.visited) {
+      if (hoveredNode.specialty == null) {
+        htmlString += `<span style="color:${game.colorMap.nodeVisited}">${hoveredNode.name}</span>`;
+      } else {
+        htmlString += `<span style="color:${game.colorMap.specialtyNodeVisited}">${hoveredNode.name}</span>`;
+      }
+    } else if (numEnemies == 0) {
+      tooltip.style.display = 'none';
+    }
+    if (numEnemies > 0) {
+      htmlString += `<span style="color:${game.colorMap.enemyPassive}"><p>Enemies: ${numEnemies}</span>`
+    }
+    if (game.nodes[game.player.position].position == hoveredNode.position) {
+      htmlString += `<span style="color:${game.colorMap.player}"><p>You</span>`
+    }
+    tooltip.innerHTML = htmlString;
+  } else {
+    tooltip.style.display = 'none';
   }
 });
