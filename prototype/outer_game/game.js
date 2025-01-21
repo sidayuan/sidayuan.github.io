@@ -842,7 +842,8 @@ class Game {
     for (let i = 0; i < this.enemies.length; i++) {
       if (
           (calculateDistance(this.nodes[this.enemies[i].position].position, this.nodes[this.player.position].position) > this.player.sensorRadius) ||
-          (this.nodes[this.player.position].effect == 'interference' && this.player.sensorLevel < 3 && this.enemies[i].position != this.player.position)
+          (this.nodes[this.player.position].effect == 'interference' && this.enemies[i].position != this.player.position && this.player.sensorLevel < 3) ||
+          (this.nodes[this.enemies[i].position].effect == 'interference' && this.enemies[i].position != this.player.position && this.player.sensorLevel < 3)
         ) { continue; }
       gameCtx.beginPath();
       gameCtx.arc(this.nodes[this.enemies[i].position].position[0], this.nodes[this.enemies[i].position].position[1], this.nodeRadius, 0, Math.PI * 2);
