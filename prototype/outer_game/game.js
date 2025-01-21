@@ -146,7 +146,9 @@ class Player {
     this.proposedFuelCost = null;
     this.detectableByEnemies = true;
     this.cloakedDuration = 0;
-    this.radarRadius = 3 * this.moveRadius; // can be parametrised
+    this.sensorRadius = 3 * this.moveRadius; // can be parametrised
+    this.engineLevel = 1;
+    this.sensorLevel = 1;
     this.targetingLevel = 1; // influences effectiveness of missiles
     this.stealthLevel = 1;
   }
@@ -177,10 +179,11 @@ class Player {
 }
 
 class Node {
-  constructor(position, type, specialty, nodeName, visitMessage, visible) {
+  constructor(position, type, specialty, effect, nodeName, visitMessage, visible) {
     this.position = position;
     this.type = type;
     this.specialty = specialty;
+    this.effect = effect;
     this.name = nodeName;
     this.visitMessage = visitMessage;
     this.visible = visible;
@@ -212,7 +215,12 @@ class Enemy {
   }
 
   decideTargetPosition(nodes, player, sanctuary, game) {
-    if ((player.detectableByEnemies) && (player.position != sanctuary) && (calculateDistance(nodes[this.position].position, nodes[player.position].position) <= this.detectionRadius)) {
+    if (
+        (player.detectableByEnemies) &&
+        (player.position != sanctuary) &&
+        (nodes[player.position].effect != 'interference') &&
+        (calculateDistance(nodes[this.position].position, nodes[player.position].position) <= this.detectionRadius)
+      ) {
       this.targetPosition = player.position;
       this.lastDetectedPlayerTurn = game.turn;
     }
@@ -299,7 +307,8 @@ class Game {
       neutralMessage : 'White',
       goodMessage : 'PaleGreen',
       badMessage : 'Salmon',
-      questMarker : `Cyan`
+      questMarker : `Cyan`,
+      nodeEffect : 'MediumAquamarine'
     }
 
     this.turn = 0;
@@ -547,6 +556,20 @@ class Game {
       upgradedStealth : [
         `Your stealth generator is upgraded. They won't know you were ever there.`,
         `Your stealth generator is upgraded. Hopefully it extends your life by another cycle or two.`
+      ],
+      enterWormhole : [
+        `You stumble upon a wormhole that appears to stretch on infinitely. You recall hearing that a ship with a powerful enough engine may be able to enter it unscathed.`,
+        `You feel your sanity slipping as you gaze into the abyss of the wormhole. You've heard that a powerful enough engine may be able to take a ship through it.`
+      ],
+      traverseWormhole : [
+        `You enter the wormhole. You can't tell whether the lights you saw were real or just your eyes playing tricks.`,
+        `You enter the wormhole. Like a bad night's sleep, you dip in and out of consciousness over what feels like a cycle.`,
+        `You enter the wormhole. You try to close your eyes to preserve your sanity.`,
+        `You enter the wormhole. It feels like your mind stuttered forwards—or backwards?—in time.`
+      ],
+      enterInterference : [
+        `You enter a region of cosmic interference. Ships outside of this node can't detect you.`,
+        `There is mild cosmic interference here. You can't be detected from the outside.`
       ]
     };
 
@@ -610,6 +633,7 @@ class Game {
       [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
       'junction',
       null,
+      null,
       `Junction Node ${generateRandomName()}`,
       this.messageList.enterJunction[Math.floor(Math.random() * this.messageList.enterJunction.length)],
       true
@@ -618,6 +642,7 @@ class Game {
       [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
       'station',
       'sanctuary',
+      null,
       `Sanctuary`,
       null,
       false
@@ -627,6 +652,7 @@ class Game {
       [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
       'station',
       'fixer',
+      null,
       `The ${['Den', 'Lounge', 'Tavern', 'Alley', 'Saloon', 'Hotel', 'Club', 'Parlour', 'House', 'Fix'][Math.floor(Math.random() * 10)]} ${generateRandomName()}`,
       this.messageList.enterFixer[Math.floor(Math.random() * this.messageList.enterFixer.length)],
       true
@@ -635,6 +661,7 @@ class Game {
       [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
       ['system', 'station'][Math.floor(Math.random() * 2)],
       'infoBroker',
+      null,
       `Data Bank ${generateRandomName()}`,
       this.messageList.enterDataBank[Math.floor(Math.random() * this.messageList.enterDataBank.length)],
       true
@@ -643,6 +670,7 @@ class Game {
       [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
       'system',
       'armsDealer',
+      null,
       `Arsenal World ${generateRandomName()}`,
       this.messageList.enterArsenal[Math.floor(Math.random() * this.messageList.enterArsenal.length)],
       true
@@ -651,6 +679,7 @@ class Game {
       [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
       'system',
       'techDealer',
+      null,
       `Hyperconductor Production World ${generateRandomName()}`,
       this.messageList.enterHyperconductorFactory[Math.floor(Math.random() * this.messageList.enterHyperconductorFactory.length)],
       true
@@ -659,6 +688,7 @@ class Game {
       [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
       'system',
       'refinery',
+      null,
       `Refinery World ${generateRandomName()}`,
       this.messageList.enterRefinery[Math.floor(Math.random() * this.messageList.enterRefinery.length)],
       true
@@ -667,6 +697,7 @@ class Game {
       [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
       'station',
       'mechanic',
+      null,
       `Shipyard Station ${generateRandomName()}`,
       this.messageList.enterShipyard[Math.floor(Math.random() * this.messageList.enterShipyard.length)],
       true
@@ -675,16 +706,38 @@ class Game {
       [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
       'system',
       'capital',
+      null,
       `Centralis`,
       this.messageList.enterCapital[Math.floor(Math.random() * this.messageList.enterCapital.length)],
       true
     ));
     this.capital = this.nodes.length - 1;
+    this.nodes.push(new Node( // wormhole A
+      [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+      'system',
+      null,
+      'wormhole',
+      `Wormhole System ${generateRandomName()}`,
+      this.messageList.enterWormhole[Math.floor(Math.random() * this.messageList.enterWormhole.length)],
+      true
+    ));
+    this.nodes.push(new Node( // wormhole B
+      [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
+      'system',
+      null,
+      'wormhole',
+      `Wormhole System ${generateRandomName()}`,
+      this.messageList.enterWormhole[Math.floor(Math.random() * this.messageList.enterWormhole.length)],
+      true
+    ));
+    this.nodes[this.nodes.length - 2].wormholeEndPosition = this.nodes.length - 1;
+    this.nodes[this.nodes.length - 1].wormholeEndPosition = this.nodes.length - 2;
 
     const nodesSet = this.nodes.length;
     for (let i = nodesSet; i < this.numNodes; i++) {
       let nodeType = ['system', 'station', 'junction'][Math.floor(Math.random() * 3)];
       let nodeSpecialty = null;
+      let nodeEffect = null;
       let nodeName = null;
       let visitMessage = null;
       if (nodeType == 'system') {
@@ -724,10 +777,14 @@ class Game {
         nodeName = `Junction Node ${generateRandomName()}`;
         visitMessage = this.messageList.enterJunction[Math.floor(Math.random() * this.messageList.enterJunction.length)]
       }
+      if (nodeSpecialty == null) {
+        if (Math.random() < 0.02) { nodeEffect = 'interference'; }
+      }
       this.nodes.push(new Node(
         [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
         nodeType,
         nodeSpecialty,
+        nodeEffect,
         nodeName,
         visitMessage,
         true
@@ -744,6 +801,8 @@ class Game {
           gameCtx.fillStyle = this.colorMap.capitalVisited;
         } else if (node.specialty != null) {
           gameCtx.fillStyle = this.colorMap.specialtyNodeVisited;
+        } else if (node.effect != null) {
+          gameCtx.fillStyle = this.colorMap.nodeEffect;
         } else {
           gameCtx.fillStyle = this.colorMap.nodeVisited;
         }
@@ -781,7 +840,10 @@ class Game {
     }
     this.drawStatus();
     for (let i = 0; i < this.enemies.length; i++) {
-      if (calculateDistance(this.nodes[this.enemies[i].position].position, this.nodes[this.player.position].position) > this.player.radarRadius) { continue; }
+      if (
+          (calculateDistance(this.nodes[this.enemies[i].position].position, this.nodes[this.player.position].position) > this.player.sensorRadius) ||
+          (this.nodes[this.player.position].effect == 'interference' && this.player.sensorLevel < 3 && this.enemies[i].position != this.player.position)
+        ) { continue; }
       gameCtx.beginPath();
       gameCtx.arc(this.nodes[this.enemies[i].position].position[0], this.nodes[this.enemies[i].position].position[1], this.nodeRadius, 0, Math.PI * 2);
       if (this.enemies[i].targetPosition == null) {
@@ -953,18 +1015,18 @@ class Game {
       const newQuest = ['smuggle', 'hunt', 'seek'][Math.floor(Math.random() * 3)];
       if (newQuest == 'smuggle') { // go to a particular point
         const newDestination = this.randomNonspecialistNode();
-        const reward = Math.round(calculateDistance(this.nodes[this.player.position].position, this.nodes[newDestination].position) * 1.5 / 100 ) * 100;
+        const reward = 200 + Math.round(calculateDistance(this.nodes[this.player.position].position, this.nodes[newDestination].position) * 1.5 / 100 ) * 100;
         this.quests.push(new quest(this.player.position, newQuest, newDestination, reward));
         this.appendMessage(this.messageList.smuggleQuest, this.colorMap.specialtyNodeUnvisited);
         this.appendMessage(this.messageList.newQuestMarkerAdded, this.colorMap.questMarker);
       } else if (newQuest == 'hunt') { // destroy N UPA ships
         const numTargets = 2 + Math.floor(Math.random() * 3);
-        const reward = 500 * numTargets;
+        const reward = 600 * numTargets;
         this.quests.push(new quest(this.player.position, newQuest, numTargets, reward));
         this.appendMessage(this.messageList.huntQuest(numTargets), this.colorMap.specialtyNodeUnvisited);
       } else if (newQuest == 'seek') { // go to a particular point, but may arbitrarily extend
         const newDestination = this.randomNonspecialistNode();
-        const reward = Math.round(calculateDistance(this.nodes[this.player.position].position, this.nodes[newDestination].position) * 1.5 / 100 ) * 100;
+        const reward = 200 + Math.round(calculateDistance(this.nodes[this.player.position].position, this.nodes[newDestination].position) * 1.5 / 100 ) * 100;
         this.quests.push(new quest(this.player.position, newQuest, newDestination, reward));
         this.appendMessage(this.messageList.seekQuest, this.colorMap.specialtyNodeUnvisited);
         this.appendMessage(this.messageList.newQuestMarkerAdded, this.colorMap.questMarker);
@@ -1020,8 +1082,6 @@ class Game {
         this.nodes[this.player.position].sellCloakPrice
       ), this.colorMap.specialtyNodeUnvisited);
     }
-    this.buttonOptions.push('Buy');
-    this.buttonOptions.push('Sell');
     if (this.buttonOptionClicked == 'Buy') {
       this.player.fuel += 1000;
       this.player.money -= this.nodes[this.player.position].buyFuelPrice;
@@ -1029,6 +1089,10 @@ class Game {
       this.state = ['sell', 'refinery'];
       this.processGameState();
     }
+    if (this.player.money >= this.nodes[this.player.position].buyFuelPrice) {
+      this.buttonOptions.push('Buy');
+    }
+    this.buttonOptions.push('Sell');
 
     this.nodes[this.player.position].lastVisited = this.turn;
     this.draw();
@@ -1047,8 +1111,6 @@ class Game {
         this.nodes[this.player.position].sellCloakPrice
       ), this.colorMap.specialtyNodeUnvisited);
     }
-    this.buttonOptions.push('Buy');
-    this.buttonOptions.push('Sell');
     if (this.buttonOptionClicked == 'Buy') {
       this.player.missiles++;
       this.player.money -= this.nodes[this.player.position].buyMissilePrice;
@@ -1056,6 +1118,10 @@ class Game {
       this.state = ['sell', 'armsDealer'];
       this.processGameState();
     }
+    if (this.player.money >= this.nodes[this.player.position].buyMissilePrice) {
+      this.buttonOptions.push('Buy');
+    }
+    this.buttonOptions.push('Sell');
 
     this.nodes[this.player.position].lastVisited = this.turn;
     this.draw();
@@ -1074,8 +1140,6 @@ class Game {
         this.nodes[this.player.position].sellMissilePrice
       ), this.colorMap.specialtyNodeUnvisited);
     }
-    this.buttonOptions.push('Buy');
-    this.buttonOptions.push('Sell');
     if (this.buttonOptionClicked == 'Buy') {
       this.player.cloaks++;
       this.player.money -= this.nodes[this.player.position].buyCloakPrice;
@@ -1083,6 +1147,10 @@ class Game {
       this.state = ['sell', 'techDealer'];
       this.processGameState();
     }
+    if (this.player.money >= this.nodes[this.player.position].buyCloakPrice) {
+      this.buttonOptions.push('Buy');
+    }
+    this.buttonOptions.push('Sell');
 
     this.nodes[this.player.position].lastVisited = this.turn;
     this.draw();
@@ -1096,15 +1164,13 @@ class Game {
     if (!('lastVisited' in this.nodes[this.player.position]) || this.turn - this.nodes[this.player.position].lastVisited > 0) {
       this.appendMessage(this.messageList.mechanicOffer(upgradePrice), this.colorMap.specialtyNodeUnvisited);
     }
-    if (['Next turn', 'Back'].includes(this.buttonOptionClicked) && this.player.money >= upgradePrice) {
-      this.buttonOptions.push('Ship upgrades');
-      this.buttonOptions.push('Tech upgrades');
-    } else if (this.buttonOptionClicked == 'Ship upgrades') {
+    if (this.buttonOptionClicked == 'Ship upgrades') {
       this.buttonOptions = ['Engine', 'Sensor', 'Back'];
     } else if (this.buttonOptionClicked == 'Tech upgrades') {
       this.buttonOptions = ['Targeting', 'Stealth', 'Back'];
     } else if (this.buttonOptionClicked == 'Engine') {
       this.player.moveRadius += 20;
+      this.player.engineLevel++;
       this.player.money -= upgradePrice;
       this.nodes[this.player.position].upgradeCount++;
       this.player.nextPosition = this.player.position;
@@ -1112,7 +1178,8 @@ class Game {
       this.move();
       this.appendMessage(this.messageList.upgradedEngine, this.colorMap.goodMessage);
     } else if (this.buttonOptionClicked == 'Sensor') {
-      this.player.radarRadius += 3 * 20;
+      this.player.sensorRadius += 3 * 20;
+      this.player.sensorLevel++;
       this.player.money -= upgradePrice;
       this.nodes[this.player.position].upgradeCount++;
       this.player.nextPosition = this.player.position;
@@ -1136,8 +1203,31 @@ class Game {
       this.move();
       this.appendMessage(this.messageList.upgradedStealth, this.colorMap.goodMessage);
     }
+    if (!['Ship upgrades', 'Tech upgrades'].includes(this.buttonOptionClicked) && this.player.money >= upgradePrice) {
+      this.buttonOptions.push('Ship upgrades');
+      this.buttonOptions.push('Tech upgrades');
+    }
 
     this.nodes[this.player.position].lastVisited = this.turn;
+    this.draw();
+  }
+
+  wormhole() {
+    if (this.player.engineLevel > 2 && this.player.fuel >= 200) {
+      if (!this.nodes[this.nodes[this.player.position].wormholeEndPosition].visited) {
+        this.nodes[this.nodes[this.player.position].wormholeEndPosition].visited = true;
+      }
+      this.buttonOptions.push('Traverse');
+    }
+    if (this.buttonOptionClicked == 'Traverse') {
+      this.buttonOptionClicked = null;
+      this.player.nextPosition = this.nodes[this.player.position].wormholeEndPosition;
+      this.player.position = this.nodes[this.player.position].wormholeEndPosition;
+      this.player.fuel -= 200;
+      this.appendMessage(this.messageList.traverseWormhole, this.colorMap.nodeEffect);
+      this.move();
+    }
+
     this.draw();
   }
 
@@ -1171,6 +1261,8 @@ class Game {
         this.techDealer();
       } else if (this.state[1] == "mechanic") {
         this.mechanic();
+      } else if (this.state[1] == "wormhole") {
+        this.wormhole();
       }
     } else if (this.state[0] == "collision") {
       this.collision();
@@ -1188,7 +1280,7 @@ class Game {
   }
 
   generateEnemy() {
-    const maxEnemies = this.notoriety / 2;
+    const maxEnemies = Math.min(Math.floor(this.notoriety / 2), 40);
     const prob = (maxEnemies - this.enemies.length) / (2 * maxEnemies);
     if (Math.random() < prob) {
       this.enemies.push(new Enemy(this.capital, enemyMoveRadius));
@@ -1221,6 +1313,7 @@ class Game {
             messageColour = this.colorMap.specialtyNodeUnvisited;
           }
         }
+        if (this.nodes[this.player.position].effect == 'wormhole') { messageColour = this.colorMap.nodeEffect; }
         this.appendMessage([this.nodes[this.player.position].visitMessage], messageColour);
       }
     }
@@ -1252,8 +1345,12 @@ class Game {
     } else if (this.nodes[this.player.position].specialty == 'capital') {
       //this.state = ['capital', null]; // using this line would force the player to stay at Centralis for a turn
       this.state = ['move', this.nodes[this.player.position].specialty];
-    } else {
+    } else if (this.nodes[this.player.position].specialty != null) {
       this.state = ['move', this.nodes[this.player.position].specialty];
+    } else if (this.nodes[this.player.position].effect != null) {
+      this.state = ['move', this.nodes[this.player.position].effect];
+    } else {
+      this.state = ['move', null];
     }
   }
 
@@ -1266,9 +1363,21 @@ class Game {
       this.player.detectableByEnemies = true;
     }
 
+    if (this.nodes[this.player.position].effect == 'interference') {
+      if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
+        this.appendMessage(this.messageList.enterInterference, this.colorMap.nodeEffect);
+      }
+      this.nodes[this.player.position].lastVisited = this.turn;
+    }
+
     // enemy movement
     const numPursuingEnemiesBefore = this.enemies.filter(enemy => enemy.targetPosition != null).length;
     for (let i = 0; i < this.enemies.length; i++) {
+      if (this.nodes[this.enemies[i].position].effect == 'wormhole') {
+        if (Math.random() < 0.5) {
+          this.enemies[i].nextPosition = this.nodes[this.enemies[i].position].wormholeEndPosition;
+        }
+      }
       this.enemies[i].move();
       this.enemies[i].decideTargetPosition(this.nodes, this.player, this.sanctuary, this);
       this.enemies[i].decideNextPosition(this.nodes, this.player, this.sanctuary);
@@ -1298,7 +1407,7 @@ let game = new Game(
   nodeRadius = 5,
   playerMoveRadius = 80,
   playerInitialFuel = 5000,
-  playerInitialMissiles = 0,
+  playerInitialMissiles = 10,
   playerInitialCloaks = 0,
   playerInitialMoney = 500,
   enemyMoveRadius = 80,
@@ -1340,12 +1449,26 @@ gameCanvas.addEventListener('click', (e) => {
     }
 });
 
+function processButtonOptionClick() {
+  if (game.buttonOptionClicked == 'Next turn') {
+    game.move();
+  } else if (['Missile', 'Cloak', 'Move on', 'Buy', 'Sell', 'Sell missile',
+      'Sell cloak', 'Sell 100 fuel', 'Ship upgrades', 'Tech upgrades', 'Back',
+      'Engine', 'Sensor', 'Targeting', 'Stealth', 'Traverse'].includes(game.buttonOptionClicked)) {
+    game.processGameState();
+  }
+}
+
 messageCanvas.addEventListener('click', (event) => {
   const result = checkMessageButtonClick(event);
-  if (game.state[0] != 'collision' && result == 'useCloak') {
-    game.buttonOptionClicked = 'useCloak';
-    game.appendMessage(game.messageList.startedCloak, game.colorMap.goodMessage);
-    game.useCloak();
+  if (result == 'useCloak') {
+    if (game.state[0] == 'collision') {
+      game.buttonOptionClicked = 'Cloak';
+    } else {
+      game.buttonOptionClicked = 'useCloak';
+      game.appendMessage(game.messageList.startedCloak, game.colorMap.goodMessage);
+      game.useCloak();
+    }
   } else if (result == 'useMissile') {
     game.buttonOptionClicked = 'Missile';
   } else if (result != null) {
@@ -1353,16 +1476,27 @@ messageCanvas.addEventListener('click', (event) => {
   } else {
     return null;
   }
-  if (game.buttonOptionClicked == 'Next turn') {
-    game.move();
-  } else if (game.state[0] == 'collision' && result == 'useCloak') {
-    game.buttonOptionClicked = 'Cloak';
-    game.processGameState();
-  } else if (['Missile', 'Cloak', 'Move on', 'Buy', 'Sell', 'Sell missile',
-      'Sell cloak', 'Sell 100 fuel', 'Ship upgrades', 'Tech upgrades', 'Back',
-      'Engine', 'Sensor', 'Targeting', 'Stealth'].includes(game.buttonOptionClicked)) {
-    game.processGameState();
+  processButtonOptionClick();
+});
+
+let keyIsPressed = false;
+document.addEventListener('keydown', function(event) {
+  if (keyIsPressed) return; // prevent spam
+  keyIsPressed = true;
+  if (event.key == ' ') {
+    if (game.buttonOptions.includes('Next turn')) {
+      game.move();
+    }
+  } else if ([1, 2, 3].includes(parseInt(event.key))) {
+    if (parseInt(event.key) <= game.buttonOptions.length) {
+      game.buttonOptionClicked = game.buttonOptions[parseInt(event.key) - 1];
+      processButtonOptionClick();
+    }
   }
+});
+
+document.addEventListener('keyup', function() {
+  keyIsPressed = false;
 });
 
 // function to check if the mouse is over a node
@@ -1385,8 +1519,8 @@ gameCanvas.addEventListener('mousemove', (event) => {
   }
   if (hoveredNode) {
     tooltip.style.display = 'block';
-    tooltip.style.left = `${event.clientX + 15}px`;//`${event.clientX - tooltip.offsetWidth - 20}px`;
-    tooltip.style.top = `${event.clientY + 15}px`;//`${event.clientY - tooltip.offsetHeight - 20}px`;
+    tooltip.style.left = `${event.clientX + 15}px`;
+    tooltip.style.top = `${event.clientY + 15}px`;
     let htmlString = ``;
     if (hoveredNode.specialty == 'sanctuary') {
       htmlString += `<span style="color:${game.colorMap.safe}">${hoveredNode.name}</span>`;
@@ -1394,18 +1528,22 @@ gameCanvas.addEventListener('mousemove', (event) => {
       htmlString += `<span style="color:${game.colorMap.capitalVisited}">${hoveredNode.name}</span>`;
     } else if (hoveredNode.visited) {
       if (hoveredNode.specialty == null) {
-        htmlString += `<span style="color:${game.colorMap.nodeVisited}">${hoveredNode.name}</span>`;
+        if (hoveredNode.effect != null) {
+          htmlString += `<span style="color:${game.colorMap.nodeEffect}">${hoveredNode.name}</span>`;
+        } else {
+          htmlString += `<span style="color:${game.colorMap.nodeVisited}">${hoveredNode.name}</span>`;
+        }
       } else {
         htmlString += `<span style="color:${game.colorMap.specialtyNodeVisited}">${hoveredNode.name}</span>`;
       }
     } else if (numEnemies == 0) {
       tooltip.style.display = 'none';
     }
-    if (numEnemies > 0) {
-      htmlString += `<span style="color:${game.colorMap.enemyPassive}"><p>Enemies: ${numEnemies}</span>`
-    }
     if (game.nodes[game.player.position].position == hoveredNode.position) {
-      htmlString += `<span style="color:${game.colorMap.player}"><p>You</span>`
+      htmlString += `<p><span style="color:${game.colorMap.player}">You</span>`
+    }
+    if (numEnemies > 0) {
+      htmlString += `<p><span style="color:${game.colorMap.enemyPassive}">Enemies: ${numEnemies}</span>`
     }
     tooltip.innerHTML = htmlString;
   } else {
