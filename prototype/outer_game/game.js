@@ -1550,7 +1550,7 @@ gameCanvas.addEventListener('mousemove', (event) => {
       htmlString += `<span style="color:${game.colorMap.capitalVisited}">${hoveredNode.name}</span>`;
     } else if (hoveredNode.visited) {
       if (hoveredNode.specialty == null) {
-        if (hoveredNode.effect != null) {
+        if (hoveredNode.effect == 'wormhole') {
           htmlString += `<span style="color:${game.colorMap.nodeEffect}">${hoveredNode.name}</span>`;
         } else {
           htmlString += `<span style="color:${game.colorMap.nodeVisited}">${hoveredNode.name}</span>`;
@@ -1560,6 +1560,9 @@ gameCanvas.addEventListener('mousemove', (event) => {
       }
     } else if (numEnemies == 0 && !isDestination) {
       tooltip.style.display = 'none';
+    }
+    if (hoveredNode.effect == 'interference') {
+      htmlString += `<p><span style="color:${game.colorMap.nodeEffect}">Cosmic interference</span>`;
     }
     if (isDestination) {
       htmlString += `<p><span style="color:${game.colorMap.questMarker}">Destination</span>`;
