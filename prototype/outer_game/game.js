@@ -156,7 +156,7 @@ class Player {
   setNextPosition(nextPosition, nodes) {
     if (nextPosition == null) {
       this.nextPosition = null;
-      return null;
+      return;
     }
     const proposedDistance = calculateDistance(nodes[this.position].position, nodes[nextPosition].position);
     if ((proposedDistance <= this.moveRadius) && (proposedDistance <= this.fuel)) {
@@ -164,7 +164,7 @@ class Player {
       this.nextPosition = nextPosition;
       return nextPosition;
     } else {
-      return null;
+      return;
     }
   }
 
@@ -934,7 +934,7 @@ class Game {
         this.state = ["move", "afterCollisionCloaked"];
         this.processGameState();
         this.draw();
-        return null;
+        return;
       }
       else {
         this.player.cloaks--;
@@ -955,7 +955,7 @@ class Game {
       this.state = ["lose", "collision"];
       this.processGameState();
       this.draw();
-      return null;
+      return;
     }
 
     if ((collidedEnemiesIndices.length > 1) && (this.buttonOptionClicked == 'Next turn')) {
@@ -985,15 +985,20 @@ class Game {
         this.nodes[this.sanctuary].visible = true;
         this.player.money -= this.initialPrices.buySanctuaryInfoPrice;
       } else {
-        this.appendMessage(this.messageList.infoBrokerOffer, this.colorMap.specialtyNodeUnvisited);
+        if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
+          this.appendMessage(this.messageList.infoBrokerOffer, this.colorMap.specialtyNodeUnvisited);
+        }
         if (this.player.money >= this.initialPrices.buySanctuaryInfoPrice) {
           this.buttonOptions.push('Buy')
         }
       }
+    } else {
+      if (this.nodes[this.player.position].lastVisited < this.turn - 1) {
+        this.appendMessage(this.messageList.infoBrokerAfterOffer, this.colorMap.specialtyNodeUnvisited);
+      }
     }
-    if (this.nodes[this.sanctuary].visible) {
-      this.appendMessage(this.messageList.infoBrokerAfterOffer, this.colorMap.specialtyNodeUnvisited);
-    }
+
+    this.nodes[this.player.position].lastVisited = this.turn;
     this.draw();
   }
 
@@ -1034,9 +1039,12 @@ class Game {
         this.appendMessage(this.messageList.newQuestMarkerAdded, this.colorMap.questMarker);
       }
     } else {
-      this.appendMessage(this.messageList.fixerAlreadyHasQuest, this.colorMap.specialtyNodeUnvisited);
+      if (this.nodes[this.player.position].lastVisited < this.turn - 1) {
+        this.appendMessage(this.messageList.fixerAlreadyHasQuest, this.colorMap.specialtyNodeUnvisited);
+      }
     }
 
+    this.nodes[this.player.position].lastVisited = this.turn;
     this.draw()
   }
 
@@ -1055,7 +1063,7 @@ class Game {
       this.state = ['move', this.state[1]];
       this.processGameState();
       this.draw();
-      return null;
+      return;
     }
     if (this.state[1] == 'refinery') {
       if (this.player.missiles > 0) { this.buttonOptions.push('Sell missile'); }
@@ -1077,7 +1085,7 @@ class Game {
       this.nodes[this.player.position].sellMissilePrice = this.initialPrices.initialSellMissilePriceRefinery;
       this.nodes[this.player.position].sellCloakPrice = this.initialPrices.initialSellCloakPriceRefinery;
     }
-    if (!('lastVisited' in this.nodes[this.player.position]) || this.turn - this.nodes[this.player.position].lastVisited > 0) {
+    if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.refineryOffer(
         this.nodes[this.player.position].buyFuelPrice,
         this.nodes[this.player.position].sellMissilePrice,
@@ -1090,6 +1098,7 @@ class Game {
     } else if (this.buttonOptionClicked == 'Sell') {
       this.state = ['sell', 'refinery'];
       this.processGameState();
+      return;
     }
     if (this.player.money >= this.nodes[this.player.position].buyFuelPrice) {
       this.buttonOptions.push('Buy');
@@ -1106,7 +1115,7 @@ class Game {
       this.nodes[this.player.position].sellFuelPrice = this.initialPrices.initialSellFuelPriceArmsDealer;
       this.nodes[this.player.position].sellCloakPrice = this.initialPrices.initialSellCloakPriceArmsDealer;
     }
-    if (!('lastVisited' in this.nodes[this.player.position]) || this.turn - this.nodes[this.player.position].lastVisited > 0) {
+    if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.armsDealerOffer(
         this.nodes[this.player.position].buyMissilePrice,
         this.nodes[this.player.position].sellFuelPrice,
@@ -1119,6 +1128,7 @@ class Game {
     } else if (this.buttonOptionClicked == 'Sell') {
       this.state = ['sell', 'armsDealer'];
       this.processGameState();
+      return;
     }
     if (this.player.money >= this.nodes[this.player.position].buyMissilePrice) {
       this.buttonOptions.push('Buy');
@@ -1135,7 +1145,7 @@ class Game {
       this.nodes[this.player.position].sellFuelPrice = this.initialPrices.initialSellFuelPriceTechDealer;
       this.nodes[this.player.position].sellMissilePrice = this.initialPrices.initialSellMissilePriceTechDealer;
     }
-    if (!('lastVisited' in this.nodes[this.player.position]) || this.turn - this.nodes[this.player.position].lastVisited > 0) {
+    if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.techDealerOffer(
         this.nodes[this.player.position].buyCloakPrice,
         this.nodes[this.player.position].sellFuelPrice,
@@ -1148,6 +1158,7 @@ class Game {
     } else if (this.buttonOptionClicked == 'Sell') {
       this.state = ['sell', 'techDealer'];
       this.processGameState();
+      return;
     }
     if (this.player.money >= this.nodes[this.player.position].buyCloakPrice) {
       this.buttonOptions.push('Buy');
@@ -1163,7 +1174,7 @@ class Game {
       this.nodes[this.player.position].upgradeCount = 0;
     }
     const upgradePrice = Math.floor(this.initialPrices.initialUpgradeCost * (1.5 ** this.nodes[this.player.position].upgradeCount) / 100 ) * 100;
-    if (!('lastVisited' in this.nodes[this.player.position]) || this.turn - this.nodes[this.player.position].lastVisited > 0) {
+    if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.mechanicOffer(upgradePrice), this.colorMap.specialtyNodeUnvisited);
     }
     if (this.buttonOptionClicked == 'Ship upgrades') {
@@ -1179,6 +1190,8 @@ class Game {
       this.buttonOptionClicked = null;
       this.move();
       this.appendMessage(this.messageList.upgradedEngine, this.colorMap.goodMessage);
+      this.draw();
+      return;
     } else if (this.buttonOptionClicked == 'Sensor') {
       this.player.sensorRadius += 3 * 20;
       this.player.sensorLevel++;
@@ -1188,6 +1201,8 @@ class Game {
       this.buttonOptionClicked = null;
       this.move();
       this.appendMessage(this.messageList.upgradedSensor, this.colorMap.goodMessage);
+      this.draw();
+      return;
     } else if (this.buttonOptionClicked == 'Targeting') {
       this.player.targetingLevel++;
       this.player.money -= upgradePrice;
@@ -1196,6 +1211,8 @@ class Game {
       this.buttonOptionClicked = null;
       this.move();
       this.appendMessage(this.messageList.upgradedTargeting, this.colorMap.goodMessage);
+      this.draw();
+      return;
     } else if (this.buttonOptionClicked == 'Stealth') {
       this.player.stealthLevel++;
       this.player.money -= upgradePrice;
@@ -1204,6 +1221,8 @@ class Game {
       this.buttonOptionClicked = null;
       this.move();
       this.appendMessage(this.messageList.upgradedStealth, this.colorMap.goodMessage);
+      this.draw();
+      return;
     }
     if (!['Ship upgrades', 'Tech upgrades'].includes(this.buttonOptionClicked) && this.player.money >= upgradePrice) {
       this.buttonOptions.push('Ship upgrades');
@@ -1295,7 +1314,7 @@ class Game {
     for (let i = 0; i < this.numNodes; i++) {
       if (this.isPositionNode(i, x, y)) { return i; }
     }
-    return null;
+    return;
   }
 
   visit() {
@@ -1432,7 +1451,7 @@ document.getElementById("new-game").addEventListener("click", function () {
 
 // listen for click events to move the player
 gameCanvas.addEventListener('click', (e) => {
-  if (game.state[0] != 'move') { return null; }
+  if (game.state[0] != 'move') { return; }
   let mouseX = e.offsetX;
   let mouseY = e.offsetY;
   let positionClicked = game.findNodeByPosition(mouseX, mouseY);
@@ -1476,7 +1495,7 @@ messageCanvas.addEventListener('click', (event) => {
   } else if (result != null) {
     game.buttonOptionClicked = game.buttonOptions[result];
   } else {
-    return null;
+    return;
   }
   processButtonOptionClick();
 });
@@ -1515,11 +1534,9 @@ gameCanvas.addEventListener('mousemove', (event) => {
   game.nodes.forEach(node => {
     if (isMouseOverNode(mouseX, mouseY, node.position) && node.visible) { hoveredNode = node; }
   });
-  let numEnemies = 0;
   if (hoveredNode) {
-    numEnemies = game.enemies.filter((enemy) => (game.nodes[enemy.position].position == hoveredNode.position)).length;
-  }
-  if (hoveredNode) {
+    const numEnemies = game.enemies.filter(enemy => game.nodes[enemy.position].position == hoveredNode.position).length;
+    const isDestination = game.quests.filter(quest => quest.type != 'hunt' && game.nodes[quest.destination].position == hoveredNode.position).length > 0;
     tooltip.style.display = 'block';
     tooltip.style.left = `${event.clientX + 15}px`;
     tooltip.style.top = `${event.clientY + 15}px`;
@@ -1538,14 +1555,17 @@ gameCanvas.addEventListener('mousemove', (event) => {
       } else {
         htmlString += `<span style="color:${game.colorMap.specialtyNodeVisited}">${hoveredNode.name}</span>`;
       }
-    } else if (numEnemies == 0) {
+    } else if (numEnemies == 0 && !isDestination) {
       tooltip.style.display = 'none';
     }
+    if (isDestination) {
+      htmlString += `<p><span style="color:${game.colorMap.questMarker}">Destination</span>`;
+    }
     if (game.nodes[game.player.position].position == hoveredNode.position) {
-      htmlString += `<p><span style="color:${game.colorMap.player}">You</span>`
+      htmlString += `<p><span style="color:${game.colorMap.player}">You</span>`;
     }
     if (numEnemies > 0) {
-      htmlString += `<p><span style="color:${game.colorMap.enemyPassive}">Enemies: ${numEnemies}</span>`
+      htmlString += `<p><span style="color:${game.colorMap.enemyPassive}">Enemies: ${numEnemies}</span>`;
     }
     tooltip.innerHTML = htmlString;
   } else {
