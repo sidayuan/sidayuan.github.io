@@ -1378,6 +1378,9 @@ class Game {
   move() {
     this.turn++;
     this.player.move();
+    if (this.isSanctuary()) {
+      this.state = ['win', 'sanctuary'];
+    }
     if (this.player.cloakedDuration > 0) {
       this.player.cloakedDuration--;
     } else if ((this.player.cloakedDuration == 0) && (!this.player.detectableByEnemies)) {
