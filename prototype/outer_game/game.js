@@ -1373,7 +1373,7 @@ class Game {
     // enemy movement
     const numPursuingEnemiesBefore = this.enemies.filter(enemy => enemy.targetPosition != null).length;
     for (let i = 0; i < this.enemies.length; i++) {
-      if (this.nodes[this.enemies[i].position].effect == 'wormhole') {
+      if (this.nodes[this.enemies[i].position].effect == 'wormhole' && this.enemies[i].lastDetectedPlayerTurn < this.turn - 1) { // if enemy didn't detect the player the previous turn
         if (Math.random() < 0.5) {
           this.enemies[i].nextPosition = this.nodes[this.enemies[i].position].wormholeEndPosition;
         }
