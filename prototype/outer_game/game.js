@@ -219,6 +219,7 @@ class Enemy {
         (player.detectableByEnemies) &&
         (player.position != sanctuary) &&
         (nodes[player.position].effect != 'interference') &&
+        (nodes[this.position].effect != 'interference') &&
         (calculateDistance(nodes[this.position].position, nodes[player.position].position) <= this.detectionRadius)
       ) {
       this.targetPosition = player.position;
