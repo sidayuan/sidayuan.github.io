@@ -967,13 +967,6 @@ class Game {
       this.enableMissileButton = false;
     }
 
-    //if ((collidedEnemiesIndices.length > 0) && (this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration == 0) && (this.player.missiles == 0) && (this.player.cloaks == 0)) {
-    //  this.state = ["lose", "collision"];
-    //  this.processGameState();
-    //  this.draw();
-    //  return;
-    //}
-
     if ((collidedEnemiesIndices.length > 1) && (this.buttonOptionClicked == 'Next turn')) {
       this.appendMessage(this.messageList.multipleShipsCollision(collidedEnemiesIndices.length), this.colorMap.badMessage);
     }
@@ -1272,6 +1265,8 @@ class Game {
   processGameState() {
     if (this.state[0] == "lose") {
       this.buttonOptions = [];
+      this.player.missiles = 0;
+      this.player.cloaks = 0;
       if (this.state[1] == "collision") {
         this.appendMessage(this.messageList.loseCollision, this.colorMap.badMessage);
         this.draw()
@@ -1279,6 +1274,8 @@ class Game {
     } else if (this.state[0] == "win") {
       this.player.detectableByEnemies = false;
       this.buttonOptions = [];
+      this.player.missiles = 0;
+      this.player.cloaks = 0;
       if (this.state[1] == "sanctuary") {
         this.appendMessage(this.messageList.winSanctuary, this.colorMap.safe);
         this.draw()
@@ -1525,6 +1522,7 @@ document.addEventListener('keydown', function(event) {
   keyIsPressed = true;
   if (event.key == ' ') {
     if (game.buttonOptions.includes('Next turn')) {
+      game.buttonOptionClicked = 'Next turn';
       game.move();
     }
   } else if ([1, 2, 3].includes(parseInt(event.key))) {
@@ -1554,8 +1552,12 @@ gameCanvas.addEventListener('mousemove', (event) => {
     if (isMouseOverNode(mouseX, mouseY, node.position) && node.visible) { hoveredNode = node; }
   });
   if (hoveredNode) {
-    const numEnemies = game.enemies.filter(enemy => game.nodes[enemy.position].position == hoveredNode.position).length;
-    const isDestination = game.quests.filter(quest => quest.type != 'hunt' && game.nodes[quest.destination].position == hoveredNode.position).length > 0;
+    const numEnemies = game.enemies.filter(enemy => game.nodes[enemy.position].position == hoveredNode.position &&
+      calculateDistance(game.nodes[enemy.position].position, game.nodes[game.player.position].position) <= game.player.sensorRadius &&
+      !(game.nodes[game.player.position].effect == 'interference' && game.player.position != enemy.position && game.player.sensorLevel < 3) &&
+      !(game.nodes[enemy.position].effect == 'interference' && game.player.position != enemy.position && game.player.sensorLevel < 3)
+    ).length;
+    const isDestination = game.quests.filter(quest => quest.questType != 'hunt' && game.nodes[quest.destination].position == hoveredNode.position).length > 0;
     tooltip.style.display = 'block';
     tooltip.style.left = `${event.clientX + 15}px`;
     tooltip.style.top = `${event.clientY + 15}px`;
