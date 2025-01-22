@@ -413,6 +413,12 @@ class Game {
         `Cloak malfunctioned!`,
         `Cloaking device was unresponsive!`
       ],
+      fleeSuccessful : [
+        `You just managed to get away from them.`,
+        `You can't believe that trick worked.`,
+        `You got very lucky.`,
+        `That was too close for comfort.`
+      ],
       enterDataBank : [
         `You approach a UPA data bank. It processes every line of communication from every day over and over. Surely it's heard something useful?`,
         `You come across a UPA data bank. It processes every byte of data from every second at the power consumption that a single star couldn't provide. Surely it's useful for something?`
@@ -902,7 +908,7 @@ class Game {
   collision() {
     if (this.buttonOptionClicked != 'Next turn') { this.turn++; }
     const collidedEnemiesIndices = this.state[1];
-    this.buttonOptions = [];
+    this.buttonOptions = ['Flee'];
     if ((this.buttonOptionClicked == "Missile") && (this.player.missiles > 0)) {
       this.player.missiles--;
       let outcome = this.missileOutcome();
@@ -943,6 +949,16 @@ class Game {
     } else if (this.buttonOptionClicked == "Move on") {
       collidedEnemiesIndices.pop();
       this.appendMessage(this.messageList.ignoreStunnedEnemy);
+    } else if (this.buttonOptionClicked == "Flee") {
+      if (Math.random() < Math.min(Math.max(0.1 * this.player.engineLevel / collidedEnemiesIndices.length, 0.05), 0.4)) {
+        this.state = ['move', 'fleed'];
+        this.appendMessage(this.messageList.fleeSuccessful, this.colorMap.goodMessage);
+      } else {
+        this.state = ['lose', 'collision'];
+      }
+      this.processGameState();
+      this.draw();
+      return;
     }
 
     if (this.player.missiles > 0 && collidedEnemiesIndices.length > 0) {
@@ -951,12 +967,12 @@ class Game {
       this.enableMissileButton = false;
     }
 
-    if ((collidedEnemiesIndices.length > 0) && (this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration == 0) && (this.player.missiles == 0) && (this.player.cloaks == 0)) {
-      this.state = ["lose", "collision"];
-      this.processGameState();
-      this.draw();
-      return;
-    }
+    //if ((collidedEnemiesIndices.length > 0) && (this.enemies[collidedEnemiesIndices[collidedEnemiesIndices.length - 1]].stunDuration == 0) && (this.player.missiles == 0) && (this.player.cloaks == 0)) {
+    //  this.state = ["lose", "collision"];
+    //  this.processGameState();
+    //  this.draw();
+    //  return;
+    //}
 
     if ((collidedEnemiesIndices.length > 1) && (this.buttonOptionClicked == 'Next turn')) {
       this.appendMessage(this.messageList.multipleShipsCollision(collidedEnemiesIndices.length), this.colorMap.badMessage);
@@ -1297,7 +1313,7 @@ class Game {
 
   isPositionNode(node, x, y) {
     const dist = calculateDistance(this.nodes[node].position, [x, y]);
-    return (dist <= this.nodeRadius);
+    return (dist <= this.nodeRadius + 1);
   }
 
   generateEnemy() {
@@ -1478,7 +1494,7 @@ function processButtonOptionClick() {
     game.move();
   } else if (['Missile', 'Cloak', 'Move on', 'Buy', 'Sell', 'Sell missile',
       'Sell cloak', 'Sell 100 fuel', 'Ship upgrades', 'Tech upgrades', 'Back',
-      'Engine', 'Sensor', 'Targeting', 'Stealth', 'Traverse'].includes(game.buttonOptionClicked)) {
+      'Engine', 'Sensor', 'Targeting', 'Stealth', 'Traverse', 'Flee'].includes(game.buttonOptionClicked)) {
     game.processGameState();
   }
 }
@@ -1525,7 +1541,7 @@ document.addEventListener('keyup', function() {
 
 // function to check if the mouse is over a node
 function isMouseOverNode(mouseX, mouseY, nodePosition) {
-  return calculateDistance([mouseX, mouseY], nodePosition) <= game.nodeRadius;
+  return calculateDistance([mouseX, mouseY], nodePosition) <= game.nodeRadius + 1;
 }
 
 gameCanvas.addEventListener('mousemove', (event) => {
