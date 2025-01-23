@@ -176,7 +176,7 @@ class Player {
   setNextPosition(nextPosition, nodes) {
     if (nextPosition == null) {
       this.nextPosition = null;
-      return;
+      return null;
     }
     const proposedDistance = calculateDistance(nodes[this.position].position, nodes[nextPosition].position);
     if ((proposedDistance <= this.moveRadius) && (proposedDistance <= this.fuel)) {
@@ -184,7 +184,7 @@ class Player {
       this.nextPosition = nextPosition;
       return nextPosition;
     } else {
-      return;
+      return null;
     }
   }
 
@@ -606,17 +606,20 @@ class Game {
     let mechanicReachable = false;
     let refineryReachable = false;
     let dealerReachable = false;
+    let capitalReachable = false;
     let reachableNodes = null;
-    while (!(mechanicReachable && refineryReachable && dealerReachable)) {
+    while (!(mechanicReachable && refineryReachable && dealerReachable && capitalReachable)) {
       mechanicReachable = false;
       refineryReachable = false;
       dealerReachable = false;
+      capitalReachable = false;
       this.generateNodes();
       reachableNodes = breadthFirstSearch(this.nodes, 0, this.player.moveRadius);
       for (const node of reachableNodes) {
         if (this.nodes[node].specialty == 'mechanic') { mechanicReachable = true; }
         if (this.nodes[node].specialty == 'refinery') { refineryReachable = true; }
         if (['armsDealer', 'techDealer'].includes(this.nodes[node].specialty)) { dealerReachable = true; }
+        if (this.nodes[node].specialty == 'capital') { capitalReachable = true; }
       }
     }
     this.nodes[this.player.position].visited = true;
@@ -672,6 +675,7 @@ class Game {
   }
 
   generateNodes() {
+    this.nodes = [];
     this.nodes.push(new Node( // starting node
       [Math.random() * gameCanvas.width, Math.random() * gameCanvas.height],
       'junction',
@@ -836,7 +840,7 @@ class Game {
   }
 
   drawNodes() {
-    this.nodes.filter((node) => node.visible).forEach((node) => {
+    this.nodes.slice().reverse().filter((node) => node.visible).forEach((node) => {
       gameCtx.beginPath();
       gameCtx.arc(node.position[0], node.position[1], this.nodeRadius, 0, Math.PI * 2);
       if (node.visited) {
@@ -976,7 +980,7 @@ class Game {
         this.state = ["move", "afterCollisionCloaked"];
         this.processGameState();
         this.draw();
-        return;
+        return null;
       }
       else {
         this.player.cloaks--;
@@ -994,7 +998,7 @@ class Game {
       }
       this.processGameState();
       this.draw();
-      return;
+      return null;
     }
 
     if (this.player.missiles > 0 && collidedEnemiesIndices.length > 0) {
@@ -1108,7 +1112,7 @@ class Game {
       this.state = ['move', this.state[1]];
       this.processGameState();
       this.draw();
-      return;
+      return null;
     }
     if (this.state[1] == 'refinery') {
       if (this.player.missiles > 0) { this.buttonOptions.push('Sell missile'); }
@@ -1143,7 +1147,7 @@ class Game {
     } else if (this.buttonOptionClicked == 'Sell') {
       this.state = ['sell', 'refinery'];
       this.processGameState();
-      return;
+      return null;
     }
     if (this.player.money >= this.nodes[this.player.position].buyFuelPrice) {
       this.buttonOptions.push('Buy');
@@ -1173,7 +1177,7 @@ class Game {
     } else if (this.buttonOptionClicked == 'Sell') {
       this.state = ['sell', 'armsDealer'];
       this.processGameState();
-      return;
+      return null;
     }
     if (this.player.money >= this.nodes[this.player.position].buyMissilePrice) {
       this.buttonOptions.push('Buy');
@@ -1203,7 +1207,7 @@ class Game {
     } else if (this.buttonOptionClicked == 'Sell') {
       this.state = ['sell', 'techDealer'];
       this.processGameState();
-      return;
+      return null;
     }
     if (this.player.money >= this.nodes[this.player.position].buyCloakPrice) {
       this.buttonOptions.push('Buy');
@@ -1236,7 +1240,7 @@ class Game {
       this.move();
       this.appendMessage(this.messageList.upgradedEngine, this.colorMap.goodMessage);
       this.draw();
-      return;
+      return null;
     } else if (this.buttonOptionClicked == 'Sensor') {
       this.player.sensorRadius += 3 * 20;
       this.player.sensorLevel++;
@@ -1247,7 +1251,7 @@ class Game {
       this.move();
       this.appendMessage(this.messageList.upgradedSensor, this.colorMap.goodMessage);
       this.draw();
-      return;
+      return null;
     } else if (this.buttonOptionClicked == 'Targeting') {
       this.player.targetingLevel++;
       this.player.money -= upgradePrice;
@@ -1257,7 +1261,7 @@ class Game {
       this.move();
       this.appendMessage(this.messageList.upgradedTargeting, this.colorMap.goodMessage);
       this.draw();
-      return;
+      return null;
     } else if (this.buttonOptionClicked == 'Stealth') {
       this.player.stealthLevel++;
       this.player.money -= upgradePrice;
@@ -1267,7 +1271,7 @@ class Game {
       this.move();
       this.appendMessage(this.messageList.upgradedStealth, this.colorMap.goodMessage);
       this.draw();
-      return;
+      return null;
     }
     if (!['Ship upgrades', 'Tech upgrades'].includes(this.buttonOptionClicked) && this.player.money >= upgradePrice) {
       this.buttonOptions.push('Ship upgrades');
@@ -1363,7 +1367,7 @@ class Game {
     for (let i = 0; i < this.numNodes; i++) {
       if (this.isPositionNode(i, x, y)) { return i; }
     }
-    return;
+    return null;
   }
 
   visit() {
@@ -1503,7 +1507,7 @@ document.getElementById("new-game").addEventListener("click", function () {
 
 // listen for click events to move the player
 gameCanvas.addEventListener('click', (e) => {
-  if (game.state[0] != 'move') { return; }
+  if (game.state[0] != 'move') { return null; }
   let mouseX = e.offsetX;
   let mouseY = e.offsetY;
   let positionClicked = game.findNodeByPosition(mouseX, mouseY);
@@ -1547,14 +1551,14 @@ messageCanvas.addEventListener('click', (event) => {
   } else if (result != null) {
     game.buttonOptionClicked = game.buttonOptions[result];
   } else {
-    return;
+    return null;
   }
   processButtonOptionClick();
 });
 
 let keyIsPressed = false;
 document.addEventListener('keydown', function(event) {
-  if (keyIsPressed) return; // prevent spam
+  if (keyIsPressed) return null; // prevent spam
   keyIsPressed = true;
   if (event.key == ' ') {
     if (game.buttonOptions.includes('Next turn')) {
@@ -1573,20 +1577,12 @@ document.addEventListener('keyup', function() {
   keyIsPressed = false;
 });
 
-// function to check if the mouse is over a node
-function isMouseOverNode(mouseX, mouseY, nodePosition) {
-  return calculateDistance([mouseX, mouseY], nodePosition) <= game.nodeRadius + 1;
-}
-
 gameCanvas.addEventListener('mousemove', (event) => {
   const canvasRect = gameCanvas.getBoundingClientRect();
-  const mouseX = event.clientX - canvasRect.left;
-  const mouseY = event.clientY - canvasRect.top;
+  const mouseX = event.offsetX;
+  const mouseY = event.offsetY;
   tooltip.innerHTML = ``;
-  let hoveredNode = null;
-  game.nodes.forEach(node => {
-    if (isMouseOverNode(mouseX, mouseY, node.position) && node.visible) { hoveredNode = node; }
-  });
+  const hoveredNode = game.nodes[game.findNodeByPosition(mouseX, mouseY)];
   if (hoveredNode) {
     const numEnemies = game.enemies.filter(enemy => game.nodes[enemy.position].position == hoveredNode.position &&
       calculateDistance(game.nodes[enemy.position].position, game.nodes[game.player.position].position) <= game.player.sensorRadius &&
