@@ -8,12 +8,32 @@ const tooltip = document.getElementById('tooltip');
 
 function calculateDistance(a, b) { return Math.sqrt(Math.pow(a[0] - b[0], 2) + Math.pow(a[1] - b[1], 2)) }
 
-function findNearbyNodes(nodes, node, radius, exclude) {
+function findNearbyNodes(nodes, node, radius, exclude = []) {
   const nearbyNodes = [];
   for (let i = 0; i < nodes.length; i++) {
     if ((calculateDistance(nodes[node].position, nodes[i].position) <= radius) && !(exclude.includes(i))) { nearbyNodes.push(i); }
   }
   return nearbyNodes;
+}
+
+function breadthFirstSearch(nodes, startingNode, radius, maxDepth = Infinity) {
+  const queue = [startingNode];
+  const discoveredNodes = new Set();
+  discoveredNodes.add(startingNode);
+  let depth = 1;
+  while (queue.length > 0) {
+    if (depth > maxDepth) { break; }
+    const currentNode = queue.shift();
+    const nearbyNodes = findNearbyNodes(nodes, currentNode, radius, Array.from(discoveredNodes));
+    for (const neighbour of nearbyNodes) {
+      if (!discoveredNodes.has(neighbour)) {
+        discoveredNodes.add(neighbour);
+        queue.push(neighbour);
+      }
+    }
+    depth++;
+  }
+  return Array.from(discoveredNodes);
 }
 
 function generateRandomName() {
@@ -580,9 +600,25 @@ class Game {
       ]
     };
 
-    this.generateNodes();
-
     this.player = new Player(playerMoveRadius, playerInitialFuel, playerInitialMissiles, playerInitialCloaks, playerInitialMoney);
+
+    // the following code guarantees that necessary nodes are initially reachable
+    let mechanicReachable = false;
+    let refineryReachable = false;
+    let dealerReachable = false;
+    let reachableNodes = null;
+    while (!(mechanicReachable && refineryReachable && dealerReachable)) {
+      mechanicReachable = false;
+      refineryReachable = false;
+      dealerReachable = false;
+      this.generateNodes();
+      reachableNodes = breadthFirstSearch(this.nodes, 0, this.player.moveRadius);
+      for (const node of reachableNodes) {
+        if (this.nodes[node].specialty == 'mechanic') { mechanicReachable = true; }
+        if (this.nodes[node].specialty == 'refinery') { refineryReachable = true; }
+        if (['armsDealer', 'techDealer'].includes(this.nodes[node].specialty)) { dealerReachable = true; }
+      }
+    }
     this.nodes[this.player.position].visited = true;
     this.enemies = [];
     for (let i = 0; i < numInitialEnemies; i++) {
