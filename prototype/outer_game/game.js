@@ -36,6 +36,49 @@ function breadthFirstSearch(nodes, startingNode, radius, maxDepth = Infinity) {
   return Array.from(discoveredNodes);
 }
 
+function shortestPath(start, end, radius, nodes, visitedOnly) {
+  const nodeIndices = [];
+  if (visitedOnly) {
+    nodes.forEach((node, index) => { if (node.visited) { nodeIndices.push(index); } });
+  } else {
+    nodes.forEach((node, index) => { nodeIndices.push(index); });
+  }
+  const dist = {};
+  const prev = {};
+  const queue = [];
+  for (const i of nodeIndices){
+    dist[i] = Infinity;
+    prev[i] = null;
+    queue.push(i);
+  }
+  dist[start] = 0;
+  while (queue.length > 0) {
+    let u = nodeIndices.reduce((minNode, node) => dist[node] < dist[minNode] ? node : minNode, nodeIndices[0]); // find node with lowest dist
+    nodeIndices.splice(nodeIndices.indexOf(u), 1);
+    if (u == end) { break; }
+    queue.splice(queue.indexOf(u), 1); // remove from queue
+    let neighbours = findNearbyNodes(nodes, u, radius).filter(node => queue.includes(node));
+    for (const v of neighbours) {
+      let alt = dist[u] + 10 + calculateDistance(game.nodes[u].position, game.nodes[v].position); // penality for turn and fuel costs
+      if (alt < dist[v]) {
+        dist[v] = alt;
+        prev[v] = u;
+      }
+    }
+}
+  path = [];
+  let u = end;
+  if (prev[u] != null || u == start) {
+    while (u != null) {
+      path.push(u);
+      u = prev[u];
+    }
+  }
+  path.pop(); // remove current node
+  path.reverse();
+  return path;
+}
+
 function generateRandomName() {
   // two random uppercase letters
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -43,6 +86,10 @@ function generateRandomName() {
   // three random digits
   const randomDigits = Math.floor(Math.random() * 1000).toString().padStart(3, '0'); // Ensures 3 digits
   return `${randomLetters}-${randomDigits}`;
+}
+
+function sleep(seconds) {
+  return new Promise(resolve => { setTimeout(resolve, seconds / 1000); });
 }
 
 function generateText(context, messages, turn, x, y, maxWidth, lineHeight) {
@@ -101,7 +148,7 @@ function generateButtons(options) {
 
   messageCtx.clearRect(0, maxHeight - lineHeight, buttonWidth, buttonHeight);
 
-  for (let i = 0; i < options.length; i++) {
+  for (let i = 0; i < Math.min(options.length, 3); i++) {
     const option = options[i];
     const x = messageCanvas.width * 0.035 + i * (buttonWidth + padding);
     const y = maxHeight - lineHeight;
@@ -163,6 +210,7 @@ class Player {
     this.money = initialMoney;
     this.moveRadius = moveRadius;
     this.nextPosition = null;
+    this.pathPlan = [];
     this.proposedFuelCost = null;
     this.detectableByEnemies = true;
     this.cloakedDuration = 0;
@@ -328,8 +376,9 @@ class Game {
       neutralMessage : 'White',
       goodMessage : 'PaleGreen',
       badMessage : 'Salmon',
-      questMarker : `Cyan`,
-      nodeEffect : 'MediumAquamarine'
+      questMarker : 'Cyan',
+      nodeEffect : 'MediumAquamarine',
+      autopilot : 'LightSkyBlue'
     }
 
     this.turn = 0;
@@ -604,7 +653,11 @@ class Game {
       enterInterference : [
         `You enter a region of cosmic interference. Ships outside of this node can't detect you.`,
         `There is mild cosmic interference here. You can't be detected from the outside.`
-      ]
+      ],
+      autopilotEngaged : [`Autopilot engaged.`],
+      autopilotCompleted : [`Your destination has arrived. Autopilot disengaged.`],
+      autopilotEndedLowFuel : [`Low fuel. Autopilot disengaged.`],
+      autopilotEndedEnemy : [`Enemy sensor ping detected. Autopilot disengaged.`],
     };
 
     this.player = new Player(playerMoveRadius, playerInitialFuel, playerInitialMissiles, playerInitialCloaks, playerInitialMoney);
@@ -615,7 +668,9 @@ class Game {
     let dealerReachable = false;
     let capitalReachable = false;
     let reachableNodes = null;
+    let count = 0;
     while (!(mechanicReachable && refineryReachable && dealerReachable && capitalReachable)) {
+      count++;
       mechanicReachable = false;
       refineryReachable = false;
       dealerReachable = false;
@@ -629,6 +684,7 @@ class Game {
         if (this.nodes[node].specialty == 'capital') { capitalReachable = true; }
       }
     }
+    console.log(`Generation: ${count}`);
     this.nodes[this.player.position].visited = true;
     this.enemies = [];
     for (let i = 0; i < numInitialEnemies; i++) {
@@ -898,6 +954,15 @@ class Game {
       gameCtx.lineTo(this.nodes[this.player.nextPosition].position[0], this.nodes[this.player.nextPosition].position[1]);
       gameCtx.strokeStyle = this.colorMap.player;
       gameCtx.stroke();
+    }
+    if (this.player.pathPlan.length > 0) { // indicate path plan
+      for (let i = 0; i < this.player.pathPlan.length - 1; i++) {
+        gameCtx.beginPath();
+        gameCtx.moveTo(this.nodes[this.player.pathPlan[i]].position[0], this.nodes[this.player.pathPlan[i]].position[1]);
+        gameCtx.lineTo(this.nodes[this.player.pathPlan[i + 1]].position[0], this.nodes[this.player.pathPlan[i + 1]].position[1]);
+        gameCtx.strokeStyle = this.colorMap.autopilot;
+        gameCtx.stroke();
+      }
     }
     this.drawStatus();
     for (let i = 0; i < this.enemies.length; i++) {
@@ -1398,6 +1463,8 @@ class Game {
       } else if (this.state[1] == "wormhole") {
         this.wormhole();
       }
+    } else if (this.state[0] == 'autopilot') {
+      this.autopilot();
     } else if (this.state[0] == "collision") {
       this.collision();
     } else if (this.state[0] == "sell") {
@@ -1490,7 +1557,14 @@ class Game {
 
   move() {
     this.turn++;
-    this.player.move();
+    if (this.player.nextPosition != null) {
+      this.player.move();
+      this.player.pathPlan.shift();
+    }
+    if (this.player.pathPlan.length > 0) { this.player.setNextPosition(this.player.pathPlan[0], this.nodes); }
+    if (this.player.nextPosition == null) {
+      this.player.pathPlan = [];
+    }
     if (this.isSanctuary()) {
       this.state = ['win', 'sanctuary'];
     }
@@ -1534,10 +1608,54 @@ class Game {
       this.state = ['collision', collidedEnemiesIndices];
     }
 
+    if (this.state[0] != 'autopilot') {
+      this.processGameState();
+      this.draw();
+    }
+  }
+
+  endAutopilot() {
+    this.player.pathPlan = [];
+    if (this.state[0] == 'autopilot') { 
+      this.state = ['move', null]; 
+    }
     this.processGameState();
     this.draw();
   }
+  
+  autopilot() {
+    this.appendMessage(this.messageList.autopilotEngaged, this.colorMap.autopilot);
+    this.buttonOptions = [];
+    const interval = setInterval(() => {
+      if (this.state[0] == 'autopilot' && this.player.pathPlan.length > 0) {
+        this.move();
+        this.draw();
+        if (this.player.pathPlan.length == 0) {
+          this.appendMessage(this.messageList.autopilotCompleted, this.colorMap.autopilot);
+          this.endAutopilot();
+          clearInterval(interval);
+          return null;
+        } else if (this.player.fuel < 300) {
+          this.appendMessage(this.messageList.autopilotEndedLowFuel, this.colorMap.autopilot);
+          this.endAutopilot();
+          clearInterval(interval);
+          return null;
+        } else if (this.enemies.filter(enemy => enemy.lastDetectedPlayerTurn >= this.turn - 1).length > 0) {
+          this.appendMessage(this.messageList.autopilotEndedEnemy, this.colorMap.autopilot);
+          this.endAutopilot();
+          clearInterval(interval);
+          return null;
+        }
+        //TO-DO: random events
+      } else { // redundant
+        this.endAutopilot();
+        clearInterval(interval);
+        return null;
+      }
+    }, 250);
+  }
 }
+  
 
 let game = new Game(
   numNodes = 150,
@@ -1566,15 +1684,24 @@ document.getElementById("new-game").addEventListener("click", function () {
 });
 
 // listen for click events to move the player
-gameCanvas.addEventListener('click', (e) => {
+gameCanvas.addEventListener('click', (event) => {
   if (game.state[0] != 'move') { return null; }
-  let mouseX = e.offsetX;
-  let mouseY = e.offsetY;
-  let positionClicked = game.findNodeByPosition(mouseX, mouseY);
-  if (positionClicked != null && !(positionClicked == game.sanctuary && !game.nodes[game.sanctuary].visible)) {
-    if (positionClicked != null) {
-      game.player.setNextPosition(positionClicked, game.nodes);
+  const mouseX = event.offsetX;
+  const mouseY = event.offsetY;
+  const positionClicked = game.findNodeByPosition(mouseX, mouseY);
+  if (positionClicked != null && !(positionClicked == game.sanctuary && !game.nodes[game.sanctuary].visible) &&
+    game.nodes[positionClicked].visited &&
+    calculateDistance(game.nodes[positionClicked].position, game.nodes[game.player.position].position) > game.player.moveRadius) { // set autopilot plan
+    game.player.pathPlan = shortestPath(game.player.position, positionClicked, game.player.moveRadius, game.nodes, true);
+    game.player.setNextPosition(game.player.pathPlan[0], game.nodes);
+    if (game.player.nextPosition == null) { game.player.pathPlan = []; }
+    if (!game.buttonOptions.includes('Autopilot') && game.player.fuel > 300 && game.buttonOptions.length < 3 &&
+      game.enemies.filter(enemy => enemy.lastDetectedPlayerTurn > game.turn - 1).length == 0) {
+      game.buttonOptions.push('Autopilot');
     }
+  } else if (positionClicked != null && !(positionClicked == game.sanctuary && !game.nodes[game.sanctuary].visible)) { // set next position
+    game.player.setNextPosition(positionClicked, game.nodes);
+    game.player.pathPlan = [positionClicked];
   }
   game.draw();
 });
@@ -1582,6 +1709,9 @@ gameCanvas.addEventListener('click', (e) => {
 function processButtonOptionClick() {
   if (game.buttonOptionClicked == 'Next turn') {
     game.move();
+  } else if (game.buttonOptionClicked == 'Autopilot') {
+    game.state = ['autopilot', null];
+    game.processGameState();
   } else if (['Missile', 'Cloak', 'Move on', 'Buy', 'Sell', 'Sell missile',
       'Sell cloak', 'Sell 100 fuel', 'Ship upgrades', 'Tech upgrades', 'Back',
       'Engine', 'Sensor', 'Targeting', 'Stealth', 'Traverse', 'Flee'].includes(game.buttonOptionClicked)) {
@@ -1647,7 +1777,7 @@ gameCanvas.addEventListener('mousemove', (event) => {
     tooltip.style.left = `${event.clientX + 15}px`;
     tooltip.style.top = `${event.clientY + 15}px`;
     let htmlString = ``;
-    if (hoveredNode.specialty == 'sanctuary') {
+    if (hoveredNode.specialty == 'sanctuary' && hoveredNode.visible) {
       htmlString += `<span style="color:${game.colorMap.safe}">${hoveredNode.name}</span>`;
     } else if (hoveredNode.specialty == 'capital' && (hoveredNode.visited || calculateDistance(hoveredNode.position, game.nodes[game.player.position].position) <= game.player.moveRadius)) {
       htmlString += `<span style="color:${game.colorMap.capitalVisited}">${hoveredNode.name}</span>`;
