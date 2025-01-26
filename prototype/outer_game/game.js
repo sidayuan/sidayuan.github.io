@@ -305,33 +305,9 @@ class Enemy {
       const intersectionNodes = nearbyNodes.filter(value => nearbyNodesPlayer.includes(value));
       if ((player.detectableByEnemies) && (intersectionNodes.length > 0)) { // if it can detect player AND reach the player's vicinity, it randomly picks such a node
         this.nextPosition = intersectionNodes[Math.floor(Math.random() * intersectionNodes.length)];
-      } else { // if enemy is still far from the player OR it can't detect the player, it chooses the approximate best path towards the target node
-        // the following chase logic can be generalised using recursion
-        const nearbyNodeSet = {}
-        const paths = [[this.position, this.position, this.position]];
-        for (let i = 0; i < nearbyNodes.length; i++) {
-          nearbyNodeSet[[i]] = findNearbyNodes(nodes, nearbyNodes[i], this.moveRadius, [sanctuary]);
-          for (let j = 0; j < nearbyNodeSet[[i]].length; j++) {
-            nearbyNodeSet[[i, j]] = findNearbyNodes(nodes, nearbyNodeSet[[i]][j], this.moveRadius, [sanctuary]);
-              for (let k = 0; k < nearbyNodeSet[[i, j]].length; k++) {
-                if ((nearbyNodeSet[[i, j]][k] != nearbyNodeSet[[i]][j]) && (nearbyNodeSet[[i, j]][k] != nearbyNodes[i]) && (nearbyNodeSet[[i, j]][k] != this.position)) {
-                  paths.push([nearbyNodes[i], nearbyNodeSet[[i]][j], nearbyNodeSet[[i, j]][k]]);
-                  if (player.position == nearbyNodeSet[[i, j]][k]) { break; }
-                }
-              }
-          }
-        }
-        let closestIndex = 0;
-        let closestDist = Infinity;
-        for (let i = 0; i < paths.length; i++) {
-          let newDist = calculateDistance(nodes[player.position].position, nodes[paths[i][2]].position);
-          if (newDist < closestDist) {
-            closestDist = newDist;
-            closestIndex = i;
-          }
-          if (closestDist == 0) { break; }
-        }
-        this.nextPosition = paths[closestIndex][0];
+      } else { // if enemy is still far from the player OR it can't detect the player, it chooses the best path towards the target node
+        const path = shortestPath(this.position, this.targetPosition, this.moveRadius, nodes, false);
+        this.nextPosition = path[0];
       }
     } else {
       this.nextPosition = nearbyNodes[Math.floor(Math.random() * nearbyNodes.length)];
@@ -684,6 +660,7 @@ class Game {
         if (this.nodes[node].specialty == 'capital') { capitalReachable = true; }
       }
     }
+    console.log(reachableNodes);
     console.log(`Generation: ${count}`);
     this.nodes[this.player.position].visited = true;
     this.enemies = [];
@@ -1524,11 +1501,13 @@ class Game {
     for (let i = 0; i < relevantQuests.length; i++) {
       if (relevantQuests[i].questType == 'smuggle') {
         relevantQuests[i].completed = true;
+        relevantQuests[i].destination = null;
         this.notoriety++;
         this.appendMessage(this.messageList.questCompleted, this.colorMap.goodMessage);
       } else if (relevantQuests[i].questType == 'seek') {
         if (Math.random() > 0.5) {
           relevantQuests[i].completed = true;
+          relevantQuests[i].destination = null;
           this.notoriety++;
           this.appendMessage(this.messageList.questCompleted, this.colorMap.goodMessage);
         } else {
@@ -1703,6 +1682,9 @@ gameCanvas.addEventListener('click', (event) => {
     game.player.setNextPosition(positionClicked, game.nodes);
     game.player.pathPlan = [positionClicked];
   }
+  if (game.buttonOptions.indexOf('Autopilot') > -1 && game.player.pathPlan.length <= 1) { // remove redundant autopilot button
+    game.buttonOptions.splice(game.buttonOptions.indexOf('Autopilot'), 1);
+  }
   game.draw();
 });
 
@@ -1772,7 +1754,7 @@ gameCanvas.addEventListener('mousemove', (event) => {
       !(game.nodes[game.player.position].effect == 'interference' && game.player.position != enemy.position && game.player.sensorLevel < 3) &&
       !(game.nodes[enemy.position].effect == 'interference' && game.player.position != enemy.position && game.player.sensorLevel < 3)
     ).length;
-    const isDestination = game.quests.filter(quest => quest.questType != 'hunt' && game.nodes[quest.destination].position == hoveredNode.position).length > 0;
+    const isDestination = game.quests.filter(quest => quest.questType != 'hunt' && quest.destination != null && game.nodes[quest.destination].position == hoveredNode.position).length > 0;
     tooltip.style.display = 'block';
     tooltip.style.left = `${event.clientX + 15}px`;
     tooltip.style.top = `${event.clientY + 15}px`;
