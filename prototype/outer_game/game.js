@@ -347,17 +347,23 @@ class Game {
     this.questsCompleted = 0;
     this.notoriety = 4; // +1 max enemy ship for every +2 notoriety
 
-    this.initialPrices = {
+    this.initialTraderParameters = {
       buySanctuaryInfoPrice : 10000,
       initialBuyFuelPriceRefinery : 100,
       initialSellMissilePriceRefinery : 250,
-      initialSellCloakPriceRefinery : 625,
+      initialSellCloakPriceRefinery : 500,
+      maxStockRefinery : 20000,
+      addStockProbabilityRefinery : 0.5,
       initialBuyMissilePriceArmsDealer : 200,
-      initialSellCloakPriceArmsDealer : 750,
+      initialSellCloakPriceArmsDealer : 600,
       initialSellFuelPriceArmsDealer : 150,
-      initialBuyCloakPriceTechDealer : 500,
+      maxStockArmsDealer : 10,
+      addStockProbabilityArmsDealer : 0.5,
+      initialBuyCloakPriceTechDealer : 400,
       initialSellMissilePriceTechDealer : 300,
       initialSellFuelPriceTechDealer : 150,
+      maxStockTechDealer : 5,
+      addStockProbabilityTechDealer : 0.25,
       initialUpgradeCost : 800,
     }
 
@@ -503,8 +509,8 @@ class Game {
         `You approach a familiar space station. You remember reading about its capture a long time ago.`
       ],
       infoBrokerOffer : [
-        `You hear a digitised voice coming from your interface. "I know who you are, and I know what you want," it says. "I'll tell you where it is for $${this.initialPrices.buySanctuaryInfoPrice}."`,
-        `I KNOW WHERE YOU WANT TO GO. $${this.initialPrices.buySanctuaryInfoPrice}.`
+        `You hear a digitised voice coming from your interface. "I know who you are, and I know what you want," it says. "I'll tell you where it is for $${this.initialTraderParameters.buySanctuaryInfoPrice}."`,
+        `I KNOW WHERE YOU WANT TO GO. $${this.initialTraderParameters.buySanctuaryInfoPrice}.`
       ],
       infoBrokerAfterOffer : [
         `All you hear is static. The information broker has nothing more to say.`,
@@ -544,22 +550,22 @@ class Game {
         `You've done your job. It's time to collect your reward.`,
         `Job completed. You hope the fixer lives up to their word.`
       ],
-      refineryOffer(buyFuelprice, sellMissilePrice, sellCloakPrice) {
+      refineryOffer(buyFuelprice, sellMissilePrice, sellCloakPrice, stock) {
         return [
-          `The anaemic fuel trader taps the sign. SELLING: 100 Fuel $${buyFuelprice}. BUYING: Missile $${sellMissilePrice}, Cloak $${sellCloakPrice}.`,
-          `The mute child points to the cracked screen. SELLING: 100 Fuel $${buyFuelprice}. BUYING: Missile $${sellMissilePrice}, Cloak $${sellCloakPrice}.`
+          `The anaemic fuel trader taps the sign. SELLING: 100 Fuel $${buyFuelprice}, ${stock} left. BUYING: Missile $${sellMissilePrice}, Cloak $${sellCloakPrice}.`,
+          `The mute child points to the cracked screen. SELLING: 100 Fuel $${buyFuelprice}, ${stock} left. BUYING: Missile $${sellMissilePrice}, Cloak $${sellCloakPrice}.`
         ]
       },
-      armsDealerOffer(buyMissilePrice, sellFuelPrice, sellCloakPrice) {
+      armsDealerOffer(buyMissilePrice, sellFuelPrice, sellCloakPrice, stock) {
         return [
-          `The arms dealer points to the writing on the wall with the only arm he has left. SELLING: Missile $${buyMissilePrice}. BUYING: 100 fuel $${sellFuelPrice}, Cloak $${sellCloakPrice}.`,
-          `The slender arms dealer coughs into a dirty cloth as he passes you a note. SELLING: Missile $${buyMissilePrice}. BUYING: 100 fuel $${sellFuelPrice}, Cloak $${sellCloakPrice}.`
+          `The arms dealer points to the writing on the wall with the only arm he has left. SELLING: Missile $${buyMissilePrice}, ${stock} left. BUYING: 100 fuel $${sellFuelPrice}, Cloak $${sellCloakPrice}.`,
+          `The slender arms dealer coughs into a dirty cloth as he passes you a note. SELLING: Missile $${buyMissilePrice}, ${stock} left. BUYING: 100 fuel $${sellFuelPrice}, Cloak $${sellCloakPrice}.`
         ]
       },
-      techDealerOffer(buyCloakPrice, sellFuelPrice, sellMissilePrice) {
+      techDealerOffer(buyCloakPrice, sellFuelPrice, sellMissilePrice, stock) {
         return [
-          `The tech dealer's rusty mechanical arm projects a hologram in front of you. SELLING: Cloak $${buyCloakPrice}. BUYING: 100 fuel $${sellFuelPrice}, Missile $${sellMissilePrice}.`,
-          `The feeble child shows you the interface in their forearm. SELLING: Cloak $${buyCloakPrice}. BUYING: 100 fuel $${sellFuelPrice}, Missile $${sellMissilePrice}.`
+          `The tech dealer's rusty mechanical arm projects a hologram in front of you. SELLING: Cloak $${buyCloakPrice}, ${stock} left. BUYING: 100 fuel $${sellFuelPrice}, Missile $${sellMissilePrice}.`,
+          `The feeble child shows you the interface in their forearm. SELLING: Cloak $${buyCloakPrice}, ${stock} left. BUYING: 100 fuel $${sellFuelPrice}, Missile $${sellMissilePrice}.`
         ]
       },
       mechanicOffer(upgradePrice) {
@@ -568,6 +574,7 @@ class Game {
           `The elderly mechanic scratches at the blister on her arm. "I can help you," she says, "if you'll help me. $${upgradePrice} and I'll improve your ship."`
         ]
       },
+      noStockLeft : [`No more stock left. Come back later.`],
       upgradedEngine : [
         `Your engine is upgraded. It will take you further.`,
         `Your engine is upgraded. It's faster now.`
@@ -885,6 +892,13 @@ class Game {
       gameCtx.strokeStyle = this.colorMap.playerMovementRadius;
       gameCtx.stroke();
     }
+    if (this.player.nextPosition != null) { // indicate next position
+      gameCtx.beginPath();
+      gameCtx.moveTo(this.nodes[this.player.position].position[0], this.nodes[this.player.position].position[1]);
+      gameCtx.lineTo(this.nodes[this.player.nextPosition].position[0], this.nodes[this.player.nextPosition].position[1]);
+      gameCtx.strokeStyle = this.colorMap.player;
+      gameCtx.stroke();
+    }
     this.drawStatus();
     for (let i = 0; i < this.enemies.length; i++) {
       if (
@@ -904,7 +918,7 @@ class Game {
   }
 
   draw() {
-    gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height); // omitting the first line
+    gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
     this.drawStatus()
     this.drawNodes();
     this.drawPlayerAndEnemies();
@@ -1032,12 +1046,12 @@ class Game {
     if (!this.nodes[this.sanctuary].visible) {
       if (this.buttonOptionClicked == 'Buy') {
         this.nodes[this.sanctuary].visible = true;
-        this.player.money -= this.initialPrices.buySanctuaryInfoPrice;
+        this.player.money -= this.initialTraderParameters.buySanctuaryInfoPrice;
       } else {
         if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
           this.appendMessage(this.messageList.infoBrokerOffer, this.colorMap.specialtyNodeUnvisited);
         }
-        if (this.player.money >= this.initialPrices.buySanctuaryInfoPrice) {
+        if (this.player.money >= this.initialTraderParameters.buySanctuaryInfoPrice) {
           this.buttonOptions.push('Buy')
         }
       }
@@ -1128,28 +1142,54 @@ class Game {
     this.draw();
   }
 
+  stockAndPricing(stockUnit) {
+    if ('lastVisited' in this.nodes[this.player.position] && this.nodes[this.player.position].lastVisited < this.turn - 1) {
+      let additionalStock = 0;
+      for (let i = 0; i < this.turn - 1 - this.nodes[this.player.position].lastVisited; i++) { // stock generation
+        if (Math.random() < this.nodes[this.player.position].addStockProbability) { additionalStock += stockUnit; }
+      }
+      this.nodes[this.player.position].stock = Math.min(this.nodes[this.player.position].stock + additionalStock, this.nodes[this.player.position].maxStock);
+      if (this.nodes[this.player.position].stock < this.nodes[this.player.position].maxStock / 2) { // dynamic pricing
+        this.nodes[this.player.position].buyPrice = Math.round((this.nodes[this.player.position].initialBuyPrice *
+          Math.round((1.5 - Math.max(this.nodes[this.player.position].stock, stockUnit) / this.nodes[this.player.position].maxStock) * 10) / 10) / 10) * 10;
+      } else {
+        this.nodes[this.player.position].buyPrice = this.nodes[this.player.position].initialBuyPrice;
+      }
+    }
+  }
+
   refinery() {
     if (!('lastVisited' in this.nodes[this.player.position])) {
-      this.nodes[this.player.position].buyFuelPrice = this.initialPrices.initialBuyFuelPriceRefinery;
-      this.nodes[this.player.position].sellMissilePrice = this.initialPrices.initialSellMissilePriceRefinery;
-      this.nodes[this.player.position].sellCloakPrice = this.initialPrices.initialSellCloakPriceRefinery;
+      this.nodes[this.player.position].initialBuyPrice = this.initialTraderParameters.initialBuyFuelPriceRefinery;
+      this.nodes[this.player.position].buyPrice = this.initialTraderParameters.initialBuyFuelPriceRefinery;
+      this.nodes[this.player.position].sellMissilePrice = this.initialTraderParameters.initialSellMissilePriceRefinery;
+      this.nodes[this.player.position].sellCloakPrice = this.initialTraderParameters.initialSellCloakPriceRefinery;
+      this.nodes[this.player.position].maxStock = this.initialTraderParameters.maxStockRefinery;
+      this.nodes[this.player.position].stock = this.initialTraderParameters.maxStockRefinery;
+      this.nodes[this.player.position].addStockProbability = this.initialTraderParameters.addStockProbabilityRefinery;
     }
+    this.stockAndPricing(1000);
     if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.refineryOffer(
-        this.nodes[this.player.position].buyFuelPrice,
+        this.nodes[this.player.position].buyPrice,
         this.nodes[this.player.position].sellMissilePrice,
-        this.nodes[this.player.position].sellCloakPrice
+        this.nodes[this.player.position].sellCloakPrice,
+        this.nodes[this.player.position].stock / 10
       ), this.colorMap.specialtyNodeUnvisited);
     }
     if (this.buttonOptionClicked == 'Buy') {
       this.player.fuel += 1000;
-      this.player.money -= this.nodes[this.player.position].buyFuelPrice;
+      this.nodes[this.player.position].stock -= 1000;
+      this.player.money -= this.nodes[this.player.position].buyPrice;
+      if (this.nodes[this.player.position].stock == 0) {
+        this.appendMessage(this.messageList.noStockLeft, this.colorMap.specialtyNodeUnvisited);
+      }
     } else if (this.buttonOptionClicked == 'Sell') {
       this.state = ['sell', 'refinery'];
       this.processGameState();
       return null;
     }
-    if (this.player.money >= this.nodes[this.player.position].buyFuelPrice) {
+    if (this.player.money >= this.nodes[this.player.position].buyPrice && this.nodes[this.player.position].stock > 0) {
       this.buttonOptions.push('Buy');
     }
     this.buttonOptions.push('Sell');
@@ -1160,26 +1200,36 @@ class Game {
 
   armsDealer() {
     if (!('lastVisited' in this.nodes[this.player.position])) {
-      this.nodes[this.player.position].buyMissilePrice = this.initialPrices.initialBuyMissilePriceArmsDealer;
-      this.nodes[this.player.position].sellFuelPrice = this.initialPrices.initialSellFuelPriceArmsDealer;
-      this.nodes[this.player.position].sellCloakPrice = this.initialPrices.initialSellCloakPriceArmsDealer;
+      this.nodes[this.player.position].initialBuyPrice = this.initialTraderParameters.initialBuyMissilePriceArmsDealer;
+      this.nodes[this.player.position].buyPrice = this.initialTraderParameters.initialBuyMissilePriceArmsDealer;
+      this.nodes[this.player.position].sellFuelPrice = this.initialTraderParameters.initialSellFuelPriceArmsDealer;
+      this.nodes[this.player.position].sellCloakPrice = this.initialTraderParameters.initialSellCloakPriceArmsDealer;
+      this.nodes[this.player.position].maxStock = this.initialTraderParameters.maxStockArmsDealer;
+      this.nodes[this.player.position].stock = this.initialTraderParameters.maxStockArmsDealer;
+      this.nodes[this.player.position].addStockProbability = this.initialTraderParameters.addStockProbabilityArmsDealer;
     }
+    this.stockAndPricing(1);
     if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.armsDealerOffer(
-        this.nodes[this.player.position].buyMissilePrice,
+        this.nodes[this.player.position].buyPrice,
         this.nodes[this.player.position].sellFuelPrice,
-        this.nodes[this.player.position].sellCloakPrice
+        this.nodes[this.player.position].sellCloakPrice,
+        this.nodes[this.player.position].stock
       ), this.colorMap.specialtyNodeUnvisited);
     }
     if (this.buttonOptionClicked == 'Buy') {
       this.player.missiles++;
-      this.player.money -= this.nodes[this.player.position].buyMissilePrice;
+      this.nodes[this.player.position].stock--;
+      this.player.money -= this.nodes[this.player.position].buyPrice;
+      if (this.nodes[this.player.position].stock == 0) {
+        this.appendMessage(this.messageList.noStockLeft, this.colorMap.specialtyNodeUnvisited);
+      }
     } else if (this.buttonOptionClicked == 'Sell') {
       this.state = ['sell', 'armsDealer'];
       this.processGameState();
       return null;
     }
-    if (this.player.money >= this.nodes[this.player.position].buyMissilePrice) {
+    if (this.player.money >= this.nodes[this.player.position].buyPrice && this.nodes[this.player.position].stock > 0) {
       this.buttonOptions.push('Buy');
     }
     this.buttonOptions.push('Sell');
@@ -1190,26 +1240,36 @@ class Game {
 
   techDealer() {
     if (!('lastVisited' in this.nodes[this.player.position])) {
-      this.nodes[this.player.position].buyCloakPrice = this.initialPrices.initialBuyCloakPriceTechDealer;
-      this.nodes[this.player.position].sellFuelPrice = this.initialPrices.initialSellFuelPriceTechDealer;
-      this.nodes[this.player.position].sellMissilePrice = this.initialPrices.initialSellMissilePriceTechDealer;
+      this.nodes[this.player.position].initialBuyPrice = this.initialTraderParameters.initialBuyCloakPriceTechDealer;
+      this.nodes[this.player.position].buyPrice = this.initialTraderParameters.initialBuyCloakPriceTechDealer;
+      this.nodes[this.player.position].sellFuelPrice = this.initialTraderParameters.initialSellFuelPriceTechDealer;
+      this.nodes[this.player.position].sellMissilePrice = this.initialTraderParameters.initialSellMissilePriceTechDealer;
+      this.nodes[this.player.position].maxStock = this.initialTraderParameters.maxStockTechDealer;
+      this.nodes[this.player.position].stock = this.initialTraderParameters.maxStockTechDealer;
+      this.nodes[this.player.position].addStockProbability = this.initialTraderParameters.addStockProbabilityTechDealer;
     }
+    this.stockAndPricing(1);
     if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.techDealerOffer(
-        this.nodes[this.player.position].buyCloakPrice,
+        this.nodes[this.player.position].buyPrice,
         this.nodes[this.player.position].sellFuelPrice,
-        this.nodes[this.player.position].sellMissilePrice
+        this.nodes[this.player.position].sellMissilePrice,
+        this.nodes[this.player.position].stock
       ), this.colorMap.specialtyNodeUnvisited);
     }
     if (this.buttonOptionClicked == 'Buy') {
       this.player.cloaks++;
-      this.player.money -= this.nodes[this.player.position].buyCloakPrice;
+      this.nodes[this.player.position].stock--;
+      this.player.money -= this.nodes[this.player.position].buyPrice;
+      if (this.nodes[this.player.position].stock == 0) {
+        this.appendMessage(this.messageList.noStockLeft, this.colorMap.specialtyNodeUnvisited);
+      }
     } else if (this.buttonOptionClicked == 'Sell') {
       this.state = ['sell', 'techDealer'];
       this.processGameState();
       return null;
     }
-    if (this.player.money >= this.nodes[this.player.position].buyCloakPrice) {
+    if (this.player.money >= this.nodes[this.player.position].buyPrice && this.nodes[this.player.position].stock > 0) {
       this.buttonOptions.push('Buy');
     }
     this.buttonOptions.push('Sell');
@@ -1222,7 +1282,7 @@ class Game {
     if (!('lastVisited' in this.nodes[this.player.position])) {
       this.nodes[this.player.position].upgradeCount = 0;
     }
-    const upgradePrice = Math.floor(this.initialPrices.initialUpgradeCost * (1.5 ** this.nodes[this.player.position].upgradeCount) / 100 ) * 100;
+    const upgradePrice = Math.floor(this.initialTraderParameters.initialUpgradeCost * (1.5 ** this.nodes[this.player.position].upgradeCount) / 100 ) * 100;
     if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.mechanicOffer(upgradePrice), this.colorMap.specialtyNodeUnvisited);
     }
@@ -1512,18 +1572,11 @@ gameCanvas.addEventListener('click', (e) => {
   let mouseY = e.offsetY;
   let positionClicked = game.findNodeByPosition(mouseX, mouseY);
   if (positionClicked != null && !(positionClicked == game.sanctuary && !game.nodes[game.sanctuary].visible)) {
-    game.player.setNextPosition(positionClicked, game.nodes);
-    // indicate next position
-    gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
-    game.draw();
-    if (game.player.nextPosition != null) {
-      gameCtx.beginPath();
-      gameCtx.moveTo(game.nodes[game.player.position].position[0], game.nodes[game.player.position].position[1]);
-      gameCtx.lineTo(game.nodes[game.player.nextPosition].position[0], game.nodes[game.player.nextPosition].position[1]);
-      gameCtx.strokeStyle = game.colorMap.player;
-      gameCtx.stroke();
+    if (positionClicked != null) {
+      game.player.setNextPosition(positionClicked, game.nodes);
     }
-    }
+  }
+  game.draw();
 });
 
 function processButtonOptionClick() {
