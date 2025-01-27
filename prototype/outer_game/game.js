@@ -16,15 +16,27 @@ function findNearbyNodes(nodes, node, radius, exclude = []) {
   return nearbyNodes;
 }
 
+function findSanctuaryIndex(nodes) {
+  let sanctuary = null;
+  nodes.forEach((node, index) => {
+    if (node.specialty == 'sanctuary') {
+      sanctuary = index;
+      return;
+    }
+  });
+  return sanctuary;
+}
+
 function breadthFirstSearch(nodes, startingNode, radius, maxDepth = Infinity) {
   const queue = [startingNode];
   const discoveredNodes = new Set();
+  const sanctuary = findSanctuaryIndex(nodes);
   discoveredNodes.add(startingNode);
   let depth = 1;
   while (queue.length > 0) {
     if (depth > maxDepth) { break; }
     const currentNode = queue.shift();
-    const nearbyNodes = findNearbyNodes(nodes, currentNode, radius, Array.from(discoveredNodes));
+    const nearbyNodes = findNearbyNodes(nodes, currentNode, radius, Array.from(discoveredNodes).concat([sanctuary]));
     for (const neighbour of nearbyNodes) {
       if (!discoveredNodes.has(neighbour)) {
         discoveredNodes.add(neighbour);
@@ -43,10 +55,12 @@ function shortestPath(start, end, radius, nodes, visitedOnly) {
   } else {
     nodes.forEach((node, index) => { nodeIndices.push(index); });
   }
+  const sanctuary = findSanctuaryIndex(nodes);
   const dist = {};
   const prev = {};
   const queue = [];
   for (const i of nodeIndices){
+    if (i == sanctuary) { continue; }
     dist[i] = Infinity;
     prev[i] = null;
     queue.push(i);
@@ -256,6 +270,8 @@ class Node {
     this.visitMessage = visitMessage;
     this.visible = visible;
     this.visited = false;
+    this.firstVisited = null;
+    this.lastVisited = null;
   }
 }
 
@@ -354,7 +370,8 @@ class Game {
       badMessage : 'Salmon',
       questMarker : 'Cyan',
       nodeEffect : 'MediumAquamarine',
-      autopilot : 'LightSkyBlue'
+      autopilot : 'LightSkyBlue',
+      event : 'Violet'
     }
 
     this.turn = 0;
@@ -390,6 +407,12 @@ class Game {
       maxStockTechDealer : 5,
       addStockProbabilityTechDealer : 0.25,
       initialUpgradeCost : 800,
+    }
+
+    this.randomEventParameters = {
+      unvisitedNodeProbability : 0.05,
+      visitedNodeProbability : 0.02,
+      randomEvents : ['cartographer', 'gift', 'reported', 'framed'],
     }
 
     this.messageList = {
@@ -634,6 +657,68 @@ class Game {
       autopilotCompleted : [`Your destination has arrived. Autopilot disengaged.`],
       autopilotEndedLowFuel : [`Low fuel. Autopilot disengaged.`],
       autopilotEndedEnemy : [`Enemy sensor ping detected. Autopilot disengaged.`],
+      autopilotEndedEvent : [`Autopilot prematurely disengaged.`],
+      cartographerOffer(price) {
+        if (price == 0) {
+          return [
+            `A nomad notices you in the corner of the eatery. "Hey buddy, you look a little lost," he says. "I don't know where you're headed, but maybe this will help you."`,
+            `At a noodle shop, you overhear a group of malnourished workers talking about a location that sounds potentially useful.`,
+            `You sit beside a friendly looking old nomad labourer. You ask them if there's anywhere worth visiting.`,
+            `At you exit your ship, you see a large feed in the hangar bay promoting relocation to a particular node.`
+          ]
+        } else {
+          return [
+            `As you line up for food, the guy in front of you turns around. "I, uh, need some cash," he says. "I'll tell you somewhere worth visiting in exchange for $${price}."`,
+            `At the bar, a stranger with a funny hat sits next to you unprompted. "Hey mate," he says. "I can tell a fellow traveller when I see one. I know a place worth your time. $${price} and I'll yell ya."`,
+            `"I'm a famous cartographer." The shady man must have waited outside your ship since you landed. "I can give you a valuable location for a low low price of $${price}."`,
+            `"I've been seeing ships come and go for 30 years," the old cleaner says in a gruffy voice. "And most of them are all going to one place. I can tell you where for $${price}."`
+          ]
+        }
+      },
+      giftMoney(amount) {
+        return [
+          `While walking through the hangar bay facility, you notice a loose vent cover. Curiosity gets the better of you and you open it, finding $${amount}.`,
+          `While using the bathroom at a bar, you notice a poorly hidden briefcase at the very end of the stalls. There's $${amount} in it.`,
+          `While walking down one of the lesser used corridors, you witness a couple of youths hacking a banking terminal. One of them notices you and reaches for something in his jacket. The older one halts him. "Here's $${amount}," she said. "Now kindly fuck off."`,
+          `You stumble upon a dead body. He has $${amount} in his pocket. Unlike the previous crime, the one you're committing is victimless.`
+        ]
+      },
+      giftFuel(amount) {
+        return [
+          `"Hey sir," a young hangar bay worker approaches you. "You're the UPA delivery contractor, right?" "Uh—" "You're a bit early," the worker gestures to the fuel containers behind him. "Sure," you say. You watch as your fuel gauge increases by ${amount} units.`,
+          `You've been eyeing that fuel container for hours. No one has come to collect it. It's guaranteed to be stolen at this point. Practically victimless. You gain ${amount} fuel.`,
+          `"Hey!" You turnaround, adrenaline filling your veins. "You're the one that's been giving UPA trouble, right?" Your silence is answer enough. "I'm glad someone's sticking it up to them," he says. "Here, I think this will do you more good than me." You receive ${amount} fuel.`,
+          `You watch as a gang of children run away with containers of fuel. The security struggles to keep up as they all disappear around a corner. You notice one of the stolen containers left behind. Another ${amount} fuel for you.`
+        ]
+      },
+      giftMissiles(amount) {
+        return [
+          `You tried your luck scavenging the site of a space battle that happened a while back. You find ${amount} missiles.`,
+          `The owner of the hangar bay sents you a priority message. "Look, I don't know who you are but I need you to take these munitions off my hands", he says in a desperate voice. "I'll be in deep shit if the UPA finds these here. And you seem like someone who wouldn't mind having these." You receive ${amount} missiles.`,
+          `You notice a container floating in space. It appears to have fallen from a munitions transport ship. You gain ${amount} missiles.`,
+          `You stumble upon an unmistakably unfolding crime scene in an alleyway. "This one deserved it," the one left standing tells you. "You can help yourself to his storage if you forget about what you see here." You find ${amount} missiles.`
+        ]
+      },
+      giftCloaks(amount) {
+        return [
+          `You find a little child outside your ship looking for food. You spare him a cycle's worth of food. He smiles and gives you something that he doesn't understand. You receive ${amount} cloaks.`,
+          `You almost missed it, but you notice an abandoned stealth ship behind a rock. You can't use everything it has to offer, but you can use the ${amount} emergency cloaks you scavenged from it.`,
+          `You notice someone staring at you from across the bar. "I know who you are," she says. You notice a rebel faction tattoo barely hidden behind the collar of her shirt. A remnant of the past. "I want you to make good use of this." You gain ${amount} cloaks.`,
+          `You caught a thief trying to siphon your fuel. "Don't do anything rash," he says. "Why not?" you ask. The thief hands you a container and leaves before you can say anything else. You receive ${amount} cloaks.`
+        ]
+      },
+      reported : [
+        `You've noticed someone following you for a while now. When you turn around, you see them speaking through their comms device. The UPA ships are probably already closing in on your location.`,
+        `As you walk approach the hangar bay exit, you notice the guard frowning at you. When the recognition hits her like a freight, you dash towards your ship. They know where you are now.`,
+        `You were enjoying your cheap slop at the eatery when your face appears on the news feed. You immediately get up to leave. Your location has definitely been alerted to the UPA authorities.`,
+        `You see the bartender getting harassed by a drunk. You intervene. That was your mistake. "Oi, I know you," the drunk smirked. "Oh you're in—" You clocked him in the nose before leaving a tip for the bartender. The UPA ships will be closing in on you soon.`
+      ],
+      framed : [
+        `You see your name appear on the news feed. Something about committing wire fraud. "The fuck?" you exclaim. "That wasn't even me!" It doesn't matter. The UPA will be sending another ship after you.`,
+        `It's not often you check the most wanted list. Your name went up in the rankings, but to your surprise, it was for a crime in a planet that you've never even heard of. You've been framed, and they'll be sending yet another ship after you.`,
+        `You hear a lot of chatter in the waves. Your name came up, but for human trafficking? You're someone's scapegoat. And you're now the target for yet another UPA ship.`,
+        `You stumble across a dead body. And somebody else stumbles across you stumbling across the dead body. Wrong place at the wrong time. The crime now has your face on it, and so does yet another UPA ship.`
+      ]
     };
 
     this.player = new Player(playerMoveRadius, playerInitialFuel, playerInitialMissiles, playerInitialCloaks, playerInitialMoney);
@@ -644,9 +729,7 @@ class Game {
     let dealerReachable = false;
     let capitalReachable = false;
     let reachableNodes = null;
-    let count = 0;
     while (!(mechanicReachable && refineryReachable && dealerReachable && capitalReachable)) {
-      count++;
       mechanicReachable = false;
       refineryReachable = false;
       dealerReachable = false;
@@ -660,13 +743,13 @@ class Game {
         if (this.nodes[node].specialty == 'capital') { capitalReachable = true; }
       }
     }
-    console.log(reachableNodes);
-    console.log(`Generation: ${count}`);
     this.nodes[this.player.position].visited = true;
+    this.nodes[this.player.position].firstVisited = this.turn;
+    this.nodes[this.player.position].lastVisited = this.turn;
     this.enemies = [];
     for (let i = 0; i < numInitialEnemies; i++) {
       this.enemies.push(new Enemy(2 + Math.floor(Math.random() * (this.numNodes - 2)), enemyMoveRadius)); // subtracting player and sanctuary positions
-      this.enemies[i].decideNextPosition(this.nodes, this.player);
+      this.enemies[i].decideNextPosition(this.nodes, this.player, this.sanctuary);
     }
 
     this.appendMessage(this.messageList.start);
@@ -1090,7 +1173,7 @@ class Game {
         this.nodes[this.sanctuary].visible = true;
         this.player.money -= this.initialTraderParameters.buySanctuaryInfoPrice;
       } else {
-        if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
+        if (this.nodes[this.player.position].lastVisited == null || this.nodes[this.player.position].lastVisited < this.turn - 1) {
           this.appendMessage(this.messageList.infoBrokerOffer, this.colorMap.specialtyNodeUnvisited);
         }
         if (this.player.money >= this.initialTraderParameters.buySanctuaryInfoPrice) {
@@ -1185,7 +1268,7 @@ class Game {
   }
 
   stockAndPricing(stockUnit) {
-    if ('lastVisited' in this.nodes[this.player.position] && this.nodes[this.player.position].lastVisited < this.turn - 1) {
+    if (this.nodes[this.player.position].lastVisited != null && this.nodes[this.player.position].lastVisited < this.turn - 1) {
       let additionalStock = 0;
       for (let i = 0; i < this.turn - 1 - this.nodes[this.player.position].lastVisited; i++) { // stock generation
         if (Math.random() < this.nodes[this.player.position].addStockProbability) { additionalStock += stockUnit; }
@@ -1201,7 +1284,7 @@ class Game {
   }
 
   refinery() {
-    if (!('lastVisited' in this.nodes[this.player.position])) {
+    if (this.nodes[this.player.position].lastVisited == null) {
       this.nodes[this.player.position].initialBuyPrice = this.initialTraderParameters.initialBuyFuelPriceRefinery;
       this.nodes[this.player.position].buyPrice = this.initialTraderParameters.initialBuyFuelPriceRefinery;
       this.nodes[this.player.position].sellMissilePrice = this.initialTraderParameters.initialSellMissilePriceRefinery;
@@ -1211,7 +1294,7 @@ class Game {
       this.nodes[this.player.position].addStockProbability = this.initialTraderParameters.addStockProbabilityRefinery;
     }
     this.stockAndPricing(1000);
-    if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
+    if (this.nodes[this.player.position].lastVisited == null || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.refineryOffer(
         this.nodes[this.player.position].buyPrice,
         this.nodes[this.player.position].sellMissilePrice,
@@ -1241,7 +1324,7 @@ class Game {
   }
 
   armsDealer() {
-    if (!('lastVisited' in this.nodes[this.player.position])) {
+    if (this.nodes[this.player.position].lastVisited == null) {
       this.nodes[this.player.position].initialBuyPrice = this.initialTraderParameters.initialBuyMissilePriceArmsDealer;
       this.nodes[this.player.position].buyPrice = this.initialTraderParameters.initialBuyMissilePriceArmsDealer;
       this.nodes[this.player.position].sellFuelPrice = this.initialTraderParameters.initialSellFuelPriceArmsDealer;
@@ -1251,7 +1334,7 @@ class Game {
       this.nodes[this.player.position].addStockProbability = this.initialTraderParameters.addStockProbabilityArmsDealer;
     }
     this.stockAndPricing(1);
-    if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
+    if (this.nodes[this.player.position].lastVisited == null || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.armsDealerOffer(
         this.nodes[this.player.position].buyPrice,
         this.nodes[this.player.position].sellFuelPrice,
@@ -1281,7 +1364,7 @@ class Game {
   }
 
   techDealer() {
-    if (!('lastVisited' in this.nodes[this.player.position])) {
+    if (this.nodes[this.player.position].lastVisited == null) {
       this.nodes[this.player.position].initialBuyPrice = this.initialTraderParameters.initialBuyCloakPriceTechDealer;
       this.nodes[this.player.position].buyPrice = this.initialTraderParameters.initialBuyCloakPriceTechDealer;
       this.nodes[this.player.position].sellFuelPrice = this.initialTraderParameters.initialSellFuelPriceTechDealer;
@@ -1291,7 +1374,7 @@ class Game {
       this.nodes[this.player.position].addStockProbability = this.initialTraderParameters.addStockProbabilityTechDealer;
     }
     this.stockAndPricing(1);
-    if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
+    if (this.nodes[this.player.position].lastVisited == null || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.techDealerOffer(
         this.nodes[this.player.position].buyPrice,
         this.nodes[this.player.position].sellFuelPrice,
@@ -1321,11 +1404,11 @@ class Game {
   };
 
   mechanic() {
-    if (!('lastVisited' in this.nodes[this.player.position])) {
+    if (this.nodes[this.player.position].lastVisited == null) {
       this.nodes[this.player.position].upgradeCount = 0;
     }
     const upgradePrice = Math.floor(this.initialTraderParameters.initialUpgradeCost * (1.5 ** this.nodes[this.player.position].upgradeCount) / 100 ) * 100;
-    if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
+    if (this.nodes[this.player.position].lastVisited == null || this.nodes[this.player.position].lastVisited < this.turn - 1) {
       this.appendMessage(this.messageList.mechanicOffer(upgradePrice), this.colorMap.specialtyNodeUnvisited);
     }
     if (this.buttonOptionClicked == 'Ship upgrades') {
@@ -1403,6 +1486,99 @@ class Game {
     this.draw();
   }
 
+  cartographer() {
+    this.buttonOptions = [];
+    let offeredNode = null;
+    const unvisitedNodes = [];
+    this.nodes.forEach((node, index) => {
+      if (!node.visited && node.visible && node.specialty != null && node.specialty != 'capital' &&
+        calculateDistance(this.nodes[this.player.position].position, node.position) > this.player.moveRadius
+      ) { unvisitedNodes.push(index); }
+    });
+    if (unvisitedNodes.length == 0) {
+      this.nodes.forEach((node, index) => {
+        if (!node.visited && node.visible && node.effect != null) { unvisitedNodes.push(index); }
+      });
+    }
+    if (unvisitedNodes.length == 0) {
+      this.state = ['move', null];
+      this.processGameState();
+      this.draw();
+      return null;
+    }
+    offeredNode = unvisitedNodes[Math.floor(unvisitedNodes.length * Math.random())];
+    let price = 0;
+    if (this.player.money >= 1000) {
+      price = 500;
+    } else if (this.player.money >= 400) {
+      price = 200;
+    }
+    if (this.buttonOptionClicked == 'Buy') {
+      this.buttonOptionClicked = null;
+      this.nodes[offeredNode].visited = true;
+      this.player.money -= price;
+      this.state = ['move', null];
+      this.buttonOptions = ['Next turn']
+    } else if (this.buttonOptionClicked == 'Move on') {
+      this.buttonOptionClicked = null;
+      if (price == 0) { this.nodes[offeredNode].visited = true; }
+      this.state = ['move', null];
+      this.buttonOptions = ['Next turn']
+    } else {
+      this.appendMessage(this.messageList.cartographerOffer(price), this.colorMap.event);
+      if (price > 0) { this.buttonOptions.push('Buy'); }
+      this.buttonOptions.push('Move on');
+    }
+
+    this.draw();
+  }
+
+  gift() {
+    const giftTypes = ['money', 'fuel', 'missiles', 'cloaks'];
+    const giftType = giftTypes[Math.floor(giftTypes.length * Math.random())];
+    let giftAmount = 0;
+    if (giftType == 'money') {
+      giftAmount = 200 + Math.floor(9 * Math.random()) * 100; // $200 to $1000
+      this.player.money += giftAmount;
+      this.appendMessage(this.messageList.giftMoney(giftAmount), this.colorMap.event);
+    } else if (giftType == 'fuel') {
+      giftAmount = 1000 + Math.floor(6 * Math.random()) * 1000; // 100 to 600 fuel
+      this.player.fuel += giftAmount;
+      this.appendMessage(this.messageList.giftFuel(giftAmount / 10), this.colorMap.event);
+    } else if (giftType == 'missiles') {
+      giftAmount = 2 + Math.floor(3 * Math.random()); // 2 to 4 missiles
+      this.player.missiles += giftAmount;
+      this.appendMessage(this.messageList.giftMissiles(giftAmount), this.colorMap.event);
+    } else if (giftType == 'cloaks') {
+      giftAmount = 2 + Math.floor(2 * Math.random()); // 2 to 3 cloaks
+      this.player.cloaks += giftAmount;
+      this.appendMessage(this.messageList.giftCloaks(giftAmount), this.colorMap.event);
+    }
+    this.state = ['move', null];
+    this.buttonOptions = ['Next turn'];
+    this.draw();
+  }
+
+  reported() {
+    this.enemies.forEach(enemy => {
+      enemy.targetPosition = this.player.position;
+      enemy.lastDetectedPlayerTurn = this.turn;
+      enemy.decideNextPosition(this.nodes, this.player, this.sanctuary);
+    });
+    this.appendMessage(this.messageList.reported, this.colorMap.event);
+    this.state = ['move', null];
+    this.buttonOptions = ['Next turn'];
+    this.draw();
+  }
+
+  framed() {
+    this.notoriety += 2;
+    this.appendMessage(this.messageList.framed, this.colorMap.event);
+    this.state = ['move', null];
+    this.buttonOptions = ['Next turn'];
+    this.draw();
+  }
+
   // this function should be used immediately after a state change
   processGameState() {
     if (this.state[0] == "lose") {
@@ -1423,8 +1599,8 @@ class Game {
         this.draw()
       }
     } else if (this.state[0] == "move") {
-      this.visit();
       this.buttonOptions = ['Next turn'];
+      this.visit();
       if (this.state[1] == 'infoBroker') {
         this.infoBroker();
       } else if (this.state[1] == 'fixer') {
@@ -1444,8 +1620,18 @@ class Game {
       this.autopilot();
     } else if (this.state[0] == "collision") {
       this.collision();
-    } else if (this.state[0] == "sell") {
+    } else if (this.state[0] == 'sell') {
       this.sell();
+    } else if (this.state[0] == 'event') {
+      if (this.state[1] == 'cartographer') {
+        this.cartographer();
+      } else if (this.state[1] == 'gift') {
+        this.gift();
+      } else if (this.state[1] == 'reported') {
+        this.reported();
+      } else if (this.state[1] == 'framed') {
+        this.framed();
+      }
     } else { // temp: for dealing with incomplete states
       this.state = ['move', null];
       this.buttonOptions = ['Next turn'];
@@ -1462,8 +1648,22 @@ class Game {
     const prob = (maxEnemies - this.enemies.length) / (2 * maxEnemies);
     if (Math.random() < prob) {
       this.enemies.push(new Enemy(this.capital, enemyMoveRadius));
-      this.enemies[this.enemies.length - 1].decideNextPosition(this.nodes, this.player);
+      this.enemies[this.enemies.length - 1].decideNextPosition(this.nodes, this.player, this.sanctuary);
     }
+  }
+
+  sampleRandomEvent() {
+    let randomEventTriggered = false;
+    let randomEvent = null;
+    if (this.nodes[this.player.position].firstVisited < this.turn) {
+      if (Math.random() < this.randomEventParameters.visitedNodeProbability) { randomEventTriggered = true;}
+    } else {
+      if (Math.random() < this.randomEventParameters.unvisitedNodeProbability) { randomEventTriggered = true;}
+    }
+    if (randomEventTriggered) {
+      randomEvent = this.randomEventParameters.randomEvents[Math.floor(this.randomEventParameters.randomEvents.length * Math.random())];
+    }
+    return randomEvent;
   }
 
   findNodeByPosition(x, y) {
@@ -1476,8 +1676,9 @@ class Game {
 
   visit() {
     // first visit
-    if (!this.nodes[this.player.position].visited) {
+    if (!this.nodes[this.player.position].visited || this.nodes[this.player.position].lastVisited == null) {
       this.nodes[this.player.position].visited = true;
+      this.nodes[this.player.position].firstVisited = this.turn;
       if (this.nodes[this.player.position].visitMessage != null && this.state != 'win') {
         let messageColour = this.colorMap.neutralMessage;
         if (this.nodes[this.player.position].specialty != null) {
@@ -1532,6 +1733,16 @@ class Game {
     } else {
       this.state = ['move', null];
     }
+    
+    // random events
+    if (this.nodes[this.player.position].specialty == null && this.nodes[this.player.position].effect == null) {
+      const randomEvent = this.sampleRandomEvent();
+      if (randomEvent != null) {
+        this.state = ['event', randomEvent];
+        this.processGameState();
+      }
+      this.nodes[this.player.position].lastVisited = this.turn;
+    }
   }
 
   move() {
@@ -1554,7 +1765,7 @@ class Game {
     }
 
     if (this.nodes[this.player.position].effect == 'interference') {
-      if (!('lastVisited' in this.nodes[this.player.position]) || this.nodes[this.player.position].lastVisited < this.turn - 1) {
+      if (this.nodes[this.player.position].lastVisited == null || this.nodes[this.player.position].lastVisited < this.turn - 1) {
         this.appendMessage(this.messageList.enterInterference, this.colorMap.nodeEffect);
       }
       this.nodes[this.player.position].lastVisited = this.turn;
@@ -1609,6 +1820,11 @@ class Game {
       if (this.state[0] == 'autopilot' && this.player.pathPlan.length > 0) {
         this.move();
         this.draw();
+        // random events
+        let randomEvent = null;
+        if (this.nodes[this.player.position].specialty == null && this.nodes[this.player.position].effect == null) {
+          randomEvent = this.sampleRandomEvent();
+        }
         if (this.player.pathPlan.length == 0) {
           this.appendMessage(this.messageList.autopilotCompleted, this.colorMap.autopilot);
           this.endAutopilot();
@@ -1624,8 +1840,13 @@ class Game {
           this.endAutopilot();
           clearInterval(interval);
           return null;
+        } else if (randomEvent != null) {
+          this.appendMessage(this.messageList.autopilotEndedEvent, this.colorMap.autopilot);
+          this.state = ['event', randomEvent];
+          this.endAutopilot();
+          clearInterval(interval);
+          return null;
         }
-        //TO-DO: random events
       } else { // redundant
         this.endAutopilot();
         clearInterval(interval);
