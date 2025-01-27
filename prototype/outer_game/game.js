@@ -581,7 +581,7 @@ class Game {
       smuggleQuest : [
         `"I have a job for ya," the fixer says as he nods to a person sitting alone at the bar. "I need you to take them somewhere. No questions asked."`,
         `"Mate, you're just the person I needed," the fixer says enthusiastically. "I need you to pick up some goods for me. And before you ask, yes. They're extremely illegal."`,
-        `"You need some cash?" the fixer asks rhetorically. "I need you to deliver something for me. And don't peek into it. Trust me kid, you're better off not knowing."`,
+        `"You need some cash?" the fixer asks rhetorically. "I need you to deliver something for me. And no peeking. Trust me kid, you're better off not knowing."`,
         `"You look like someone who needs to be put to work," the fixer grinned. "I need you to pick someone up and bring them back here. They'll be expecting you, but don't talk to them. Understand?."`
       ],
       seekQuest : [
@@ -677,41 +677,41 @@ class Game {
       },
       giftMoney(amount) {
         return [
-          `While walking through the hangar bay facility, you notice a loose vent cover. Curiosity gets the better of you and you open it, finding $${amount}.`,
-          `While using the bathroom at a bar, you notice a poorly hidden briefcase at the very end of the stalls. There's $${amount} in it.`,
-          `While walking down one of the lesser used corridors, you witness a couple of youths hacking a banking terminal. One of them notices you and reaches for something in his jacket. The older one halts him. "Here's $${amount}," she said. "Now kindly fuck off."`,
-          `You stumble upon a dead body. He has $${amount} in his pocket. Unlike the previous crime, the one you're committing is victimless.`
+          `While walking through the hangar bay facility, you notice a loose vent cover. Curiosity gets the better of you and you open it. +$${amount}.`,
+          `While using the bathroom at a bar, you notice a poorly hidden briefcase at the very end of the stalls. +$${amount}.`,
+          `While walking down one of the lesser used corridors, you witness a couple of youths hacking a banking terminal. One of them notices you and reaches for something in his jacket. The older one halts him. "Here's some cash," she said. "Now kindly fuck off." +$${amount}.`,
+          `You stumble upon a dead body. He has money in his pocket. Unlike the previous crime, the one you're committing is victimless. +$${amount}.`
         ]
       },
       giftFuel(amount) {
         return [
-          `"Hey sir," a young hangar bay worker approaches you. "You're the UPA delivery contractor, right?" "Uh—" "You're a bit early," the worker gestures to the fuel containers behind him. "Sure," you say. You watch as your fuel gauge increases by ${amount} units.`,
-          `You've been eyeing that fuel container for hours. No one has come to collect it. It's guaranteed to be stolen at this point. Practically victimless. You gain ${amount} fuel.`,
-          `"Hey!" You turnaround, adrenaline filling your veins. "You're the one that's been giving UPA trouble, right?" Your silence is answer enough. "I'm glad someone's sticking it up to them," he says. "Here, I think this will do you more good than me." You receive ${amount} fuel.`,
-          `You watch as a gang of children run away with containers of fuel. The security struggles to keep up as they all disappear around a corner. You notice one of the stolen containers left behind. Another ${amount} fuel for you.`
+          `"Hey sir," a young hangar bay worker approaches you. "You're the UPA delivery contractor, right?" "Uh—" "You're a bit early," the worker gestures to the fuel containers behind him. "Sure," you say. +${amount} Fuel.`,
+          `You've been eyeing that fuel container for hours. No one has come to collect it. It's guaranteed to be stolen at this point. Practically victimless. +${amount} Fuel.`,
+          `"Hey!" You turnaround, adrenaline filling your veins. "You're the one that's been giving UPA trouble, right?" Your silence is answer enough. "I'm glad someone's sticking it up to them," he says. "Here, I think this will do you more good than me." +${amount} Fuel.`,
+          `You watch as a gang of children run away with containers of fuel. The security struggles to keep up as they all disappear around a corner. You notice one of the stolen containers left behind. +${amount} Fuel.`
         ]
       },
       giftMissiles(amount) {
         return [
-          `You tried your luck scavenging the site of a space battle that happened a while back. You find ${amount} missiles.`,
-          `The owner of the hangar bay sents you a priority message. "Look, I don't know who you are but I need you to take these munitions off my hands", he says in a desperate voice. "I'll be in deep shit if the UPA finds these here. And you seem like someone who wouldn't mind having these." You receive ${amount} missiles.`,
-          `You notice a container floating in space. It appears to have fallen from a munitions transport ship. You gain ${amount} missiles.`,
-          `You stumble upon an unmistakably unfolding crime scene in an alleyway. "This one deserved it," the one left standing tells you. "You can help yourself to his storage if you forget about what you see here." You find ${amount} missiles.`
+          `You tried your luck scavenging the site of a space battle that happened a while back. +${amount} Missiles.`,
+          `The owner of the hangar bay sents you a priority message. "Look, I don't know who you are but I need you to take these munitions off my hands", he says in a desperate voice. "I'll be in deep shit if the UPA finds these here. And you seem like someone who wouldn't mind having these." +${amount} Missiles.`,
+          `You notice a container floating in space. It appears to have fallen from a munitions transport ship. +${amount} Missiles.`,
+          `You stumble upon an unmistakably unfolding crime scene in an alleyway. "This one deserved it," the one left standing tells you. "You can help yourself to his storage if you forget about what you see here." +${amount} Missiles.`
         ]
       },
       giftCloaks(amount) {
         return [
-          `You find a little child outside your ship looking for food. You spare him a cycle's worth of food. He smiles and gives you something that he doesn't understand. You receive ${amount} cloaks.`,
-          `You almost missed it, but you notice an abandoned stealth ship behind a rock. You can't use everything it has to offer, but you can use the ${amount} emergency cloaks you scavenged from it.`,
-          `You notice someone staring at you from across the bar. "I know who you are," she says. You notice a rebel faction tattoo barely hidden behind the collar of her shirt. A remnant of the past. "I want you to make good use of this." You gain ${amount} cloaks.`,
-          `You caught a thief trying to siphon your fuel. "Don't do anything rash," he says. "Why not?" you ask. The thief hands you a container and leaves before you can say anything else. You receive ${amount} cloaks.`
+          `You find a little child outside your ship looking for food. You spare him a cycle's worth of food. He smiles and gives you something that he doesn't understand. +${amount} Cloaks.`,
+          `You almost missed it, but you notice an abandoned stealth ship behind a rock. You scavenge what you can from it. +${amount} Cloaks.`,
+          `You notice someone staring at you from across the bar. "I know who you are," she says. You notice a rebel faction tattoo barely hidden behind the collar of her shirt. A remnant of the past. "I want you to make good use of this." +${amount} Cloaks.`,
+          `You caught a thief trying to siphon your fuel. "Don't do anything rash," he says. "Why not?" you ask. The thief hands you a container and leaves before you can say anything else. +${amount} Cloaks.`
         ]
       },
       reported : [
-        `You've noticed someone following you for a while now. When you turn around, you see them speaking through their comms device. The UPA ships are probably already closing in on your location.`,
+        `You've noticed someone following you for a while now. When you turn around, you see them speaking through their comms device. UPA ships are probably already closing in on your location.`,
         `As you walk approach the hangar bay exit, you notice the guard frowning at you. When the recognition hits her like a freight, you dash towards your ship. They know where you are now.`,
         `You were enjoying your cheap slop at the eatery when your face appears on the news feed. You immediately get up to leave. Your location has definitely been alerted to the UPA authorities.`,
-        `You see the bartender getting harassed by a drunk. You intervene. That was your mistake. "Oi, I know you," the drunk smirked. "Oh you're in—" You clocked him in the nose before leaving a tip for the bartender. The UPA ships will be closing in on you soon.`
+        `You see the bartender getting harassed by a drunk. You intervene. That was your mistake. "Oi, I know you," the drunk smirked. "Oh you're in—" You clocked him in the nose before leaving a tip for the bartender. UPA ships will be closing in on you soon.`
       ],
       framed : [
         `You see your name appear on the news feed. Something about committing wire fraud. "The fuck?" you exclaim. "That wasn't even me!" It doesn't matter. The UPA will be sending another ship after you.`,
@@ -1064,7 +1064,7 @@ class Game {
     let rng = Math.random();
     if (rng < 0.8 + 0.05 * this.player.targetingLevel) {
       rng = Math.random();
-      if (rng < 0.5 + 0.05 + this.player.targetingLevel) {
+      if (rng < 0.5 + 0.05 * this.player.targetingLevel) {
         return "destroyed";
       } else {
         return "stunned";
@@ -1800,6 +1800,7 @@ class Game {
 
     if (this.state[0] != 'autopilot') {
       this.processGameState();
+      if (this.player.pathPlan.length > 1) { this.buttonOptions.push('Autopilot'); }
       this.draw();
     }
   }
@@ -1825,6 +1826,9 @@ class Game {
         if (this.nodes[this.player.position].specialty == null && this.nodes[this.player.position].effect == null) {
           randomEvent = this.sampleRandomEvent();
         }
+        // pursuing enemies detected within player's sensor range
+        const numEnemies = this.enemies.filter(enemy => enemy.lastDetectedPlayerTurn >= this.turn - 1 &&
+          calculateDistance(this.nodes[enemy.position].position, this.nodes[this.player.position].position) <= this.player.sensorRadius).length;
         if (this.player.pathPlan.length == 0) {
           this.appendMessage(this.messageList.autopilotCompleted, this.colorMap.autopilot);
           this.endAutopilot();
@@ -1835,7 +1839,7 @@ class Game {
           this.endAutopilot();
           clearInterval(interval);
           return null;
-        } else if (this.enemies.filter(enemy => enemy.lastDetectedPlayerTurn >= this.turn - 1).length > 0) {
+        } else if (numEnemies > 0) {
           this.appendMessage(this.messageList.autopilotEndedEnemy, this.colorMap.autopilot);
           this.endAutopilot();
           clearInterval(interval);
