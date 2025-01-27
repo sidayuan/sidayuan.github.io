@@ -1416,7 +1416,7 @@ class Game {
     } else if (this.buttonOptionClicked == 'Tech upgrades') {
       this.buttonOptions = ['Targeting', 'Stealth', 'Back'];
     } else if (this.buttonOptionClicked == 'Engine') {
-      this.player.moveRadius += 20;
+      this.player.moveRadius += 10;
       this.player.engineLevel++;
       this.player.money -= upgradePrice;
       this.nodes[this.player.position].upgradeCount++;
