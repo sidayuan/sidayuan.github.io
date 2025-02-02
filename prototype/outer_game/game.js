@@ -292,13 +292,15 @@ class Enemy {
     this.moveRadius = moveRadius;
     this.stunDuration = 0;
     this.nextPosition = null;
-    this.detectableByPlayer = false;
+    this.detectableByPlayer = true;
+    this.ambushDuration = 0;
     this.detectionRadius = 2 * this.moveRadius; // can be parametrised
     this.abandonThreshold = 5; // can be parametrised
     this.lastDetectedPlayerTurn = null;
   }
 
   decideTargetPosition(nodes, player, sanctuary, game) {
+    if (this.ambushDuration > 0) { return null; }
     if (
         (player.detectableByEnemies) &&
         (player.position != sanctuary) &&
@@ -315,6 +317,7 @@ class Enemy {
   }
 
   decideNextPosition(nodes, player, sanctuary) {
+    if (this.ambushDuration > 0) { return null; }
     const nearbyNodes = findNearbyNodes(nodes, this.position, this.moveRadius, [sanctuary]);
     if (this.targetPosition != null) {
       const nearbyNodesPlayer = findNearbyNodes(nodes, player.position, player.moveRadius, [sanctuary]);
@@ -331,9 +334,26 @@ class Enemy {
   }
 
   move() {
+    if (this.ambushDuration > 0) {
+      this.ambushDuration--;
+      if (this.ambushDuration > 0) {
+        return null;
+      } else {
+        this.detectableByPlayer = true;
+      }
+    } else {
+      if (Math.random() < 0.9) {
+        this.ambushDuration = 10 + Math.floor(Math.random() * 11); // 10 to 20
+        this.targetPosition = null;
+        this.nextPosition = null;
+        this.detectableByPlayer = false;
+        return null;
+      }
+    }
     if (this.stunDuration > 0) {
       this.stunDuration--;
     } else {
+      if (this.nextPosition == null) { return null; }
       this.position = this.nextPosition;
       this.nextPosition = null;
     }
@@ -438,6 +458,13 @@ class Game {
         `Multiple UPA ships inbound!`,
         `UPA ships have set course for your position!`,
         `It looks like UPA ships have noticed you!`
+      ],
+      ambushed : [
+        `It's an ambush!`,
+        `They were waiting for you this whole time!`,
+        `They were expecting you!`,
+        `It's a set up!`,
+        `They knew you were going to be here!`
       ],
       singleShipCollision : [
         `A UPA ship is about to enter missile range!`,
@@ -1028,8 +1055,9 @@ class Game {
     for (let i = 0; i < this.enemies.length; i++) {
       if (
           (calculateDistance(this.nodes[this.enemies[i].position].position, this.nodes[this.player.position].position) > this.player.sensorRadius) ||
-          (this.nodes[this.player.position].effect == 'interference' && this.enemies[i].position != this.player.position && this.player.sensorLevel < 3) ||
-          (this.nodes[this.enemies[i].position].effect == 'interference' && this.enemies[i].position != this.player.position && this.player.sensorLevel < 3)
+          (!this.enemies[i].detectableByPlayer && this.player.sensorLevel < 3) ||
+          (this.nodes[this.player.position].effect == 'interference' && this.enemies[i].position != this.player.position && this.player.sensorLevel < 2) ||
+          (this.nodes[this.enemies[i].position].effect == 'interference' && this.enemies[i].position != this.player.position && this.player.sensorLevel < 2)
         ) { continue; }
       gameCtx.beginPath();
       gameCtx.arc(this.nodes[this.enemies[i].position].position[0], this.nodes[this.enemies[i].position].position[1], this.nodeRadius, 0, Math.PI * 2);
@@ -1144,6 +1172,20 @@ class Game {
       this.enableMissileButton = true;
     } else {
       this.enableMissileButton = false;
+    }
+
+    // checking for ambush
+    if ((collidedEnemiesIndices.length > 0) && (this.buttonOptionClicked == 'Next turn')) {
+      let ambushed = false;
+      for (let i = 0; i < collidedEnemiesIndices.length; i++) {
+        if (this.enemies[collidedEnemiesIndices[i]].ambushDuration > 0) {
+          this.enemies[collidedEnemiesIndices[i]].ambushDuration = 0;
+          ambushed = true;
+        }
+      }
+      if (ambushed) {
+        this.appendMessage(this.messageList.ambushed, this.colorMap.badMessage);
+      }
     }
 
     if ((collidedEnemiesIndices.length > 1) && (this.buttonOptionClicked == 'Next turn')) {
@@ -1519,11 +1561,13 @@ class Game {
       this.player.money -= price;
       this.state = ['move', null];
       this.buttonOptions = ['Next turn']
+      if (this.player.pathPlan.length > 1) { this.buttonOptions.push('Autopilot'); }
     } else if (this.buttonOptionClicked == 'Move on') {
       this.buttonOptionClicked = null;
       if (price == 0) { this.nodes[offeredNode].visited = true; }
       this.state = ['move', null];
       this.buttonOptions = ['Next turn']
+      if (this.player.pathPlan.length > 1) { this.buttonOptions.push('Autopilot'); }
     } else {
       this.appendMessage(this.messageList.cartographerOffer(price), this.colorMap.event);
       if (price > 0) { this.buttonOptions.push('Buy'); }
@@ -1556,6 +1600,7 @@ class Game {
     }
     this.state = ['move', null];
     this.buttonOptions = ['Next turn'];
+    if (this.player.pathPlan.length > 1) { this.buttonOptions.push('Autopilot'); }
     this.draw();
   }
 
@@ -1568,6 +1613,7 @@ class Game {
     this.appendMessage(this.messageList.reported, this.colorMap.event);
     this.state = ['move', null];
     this.buttonOptions = ['Next turn'];
+    if (this.player.pathPlan.length > 1) { this.buttonOptions.push('Autopilot'); }
     this.draw();
   }
 
@@ -1576,6 +1622,7 @@ class Game {
     this.appendMessage(this.messageList.framed, this.colorMap.event);
     this.state = ['move', null];
     this.buttonOptions = ['Next turn'];
+    if (this.player.pathPlan.length > 1) { this.buttonOptions.push('Autopilot'); }
     this.draw();
   }
 
@@ -1601,6 +1648,7 @@ class Game {
     } else if (this.state[0] == "move") {
       this.buttonOptions = ['Next turn'];
       this.visit();
+      
       if (this.state[1] == 'infoBroker') {
         this.infoBroker();
       } else if (this.state[1] == 'fixer') {
@@ -1772,6 +1820,7 @@ class Game {
     }
 
     // enemy movement
+    let ambushingEnemies = 0;
     const numPursuingEnemiesBefore = this.enemies.filter(enemy => enemy.targetPosition != null).length;
     for (let i = 0; i < this.enemies.length; i++) {
       if (this.nodes[this.enemies[i].position].effect == 'wormhole' && this.enemies[i].lastDetectedPlayerTurn < this.turn - 1) { // if enemy didn't detect the player the previous turn
@@ -1782,7 +1831,9 @@ class Game {
       this.enemies[i].move();
       this.enemies[i].decideTargetPosition(this.nodes, this.player, this.sanctuary, this);
       this.enemies[i].decideNextPosition(this.nodes, this.player, this.sanctuary);
+      if (this.enemies[i].ambushDuration > 0) { ambushingEnemies++; }
     }
+    //console.log(`Ambushing enemies: ${ambushingEnemies}`);
     this.generateEnemy();
     const numPursuingEnemiesAfter = this.enemies.filter(enemy => enemy.targetPosition != null).length;
 
@@ -1796,9 +1847,11 @@ class Game {
     const collidedEnemiesIndices = this.findCollidedEnemies();
     if ((collidedEnemiesIndices.length > 0) && (this.player.detectableByEnemies)) {
       this.state = ['collision', collidedEnemiesIndices];
+      this.processGameState();
+      this.draw();
     }
-
-    if (this.state[0] != 'autopilot') {
+    
+    if (this.state[0] == 'move') {
       this.processGameState();
       if (this.player.pathPlan.length > 1) { this.buttonOptions.push('Autopilot'); }
       this.draw();
@@ -1806,7 +1859,7 @@ class Game {
   }
 
   endAutopilot() {
-    this.player.pathPlan = [];
+    //this.player.pathPlan = [];
     if (this.state[0] == 'autopilot') { 
       this.state = ['move', null]; 
     }
@@ -1976,8 +2029,9 @@ gameCanvas.addEventListener('mousemove', (event) => {
   if (hoveredNode) {
     const numEnemies = game.enemies.filter(enemy => game.nodes[enemy.position].position == hoveredNode.position &&
       calculateDistance(game.nodes[enemy.position].position, game.nodes[game.player.position].position) <= game.player.sensorRadius &&
-      !(game.nodes[game.player.position].effect == 'interference' && game.player.position != enemy.position && game.player.sensorLevel < 3) &&
-      !(game.nodes[enemy.position].effect == 'interference' && game.player.position != enemy.position && game.player.sensorLevel < 3)
+      !(game.nodes[game.player.position].effect == 'interference' && game.player.position != enemy.position && game.player.sensorLevel < 2) &&
+      !(game.nodes[enemy.position].effect == 'interference' && game.player.position != enemy.position && game.player.sensorLevel < 2) &&
+      !(!enemy.detectableByPlayer && game.player.sensorLevel < 3)
     ).length;
     const isDestination = game.quests.filter(quest => quest.questType != 'hunt' && quest.destination != null && game.nodes[quest.destination].position == hoveredNode.position).length > 0;
     tooltip.style.display = 'block';
