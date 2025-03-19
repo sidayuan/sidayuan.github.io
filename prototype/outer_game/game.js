@@ -342,7 +342,7 @@ class Enemy {
         this.detectableByPlayer = true;
       }
     } else {
-      if (Math.random() < 0.9) {
+      if (Math.random() < 0.005) {
         this.ambushDuration = 10 + Math.floor(Math.random() * 11); // 10 to 20
         this.targetPosition = null;
         this.nextPosition = null;
